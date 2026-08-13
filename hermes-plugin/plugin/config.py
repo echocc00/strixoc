@@ -38,6 +38,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # (e.g. api_key / base_url / model) so LLM keys live in exactly one
     # place and never have to be copied here.
     "worker_env": {},
+    # Optional explicit path to the hermes config.yaml that ``@hermes:``
+    # tokens read.  Set this when hermes runs with a named profile — profile
+    # activation can move HERMES_HOME around and home-based resolution is
+    # not reliable.  Empty = env HERMES_HOME -> platform default home.
+    "hermes_config_path": "",
 }
 
 
@@ -66,10 +71,38 @@ def hermes_home() -> Path:
     return Path.home() / ".hermes"
 
 
-def hermes_config_value(field: str) -> str | None:
+def hermes_config_value(field: str, config_path: str | Path | None = None) -> str | None:
     """Read one scalar from the hermes config.yaml (api_key / base_url / model).
-    Never raises.  Used by ``worker_env`` ``@hermes:<field>`` tokens."""
-    cfg = hermes_home() / "config.yaml"
+    Never raises.  Used by ``worker_env`` ``@hermes:<field>`` tokens.
+
+    Resolution: explicit ``config_path`` (own option — set it when hermes runs
+    under a named profile) -> env HERMES_HOME -> platform default home.  The
+    fallback to the default home covers profile homes that lack credentials."""
+    value = _hermes_config_value_from(field, Path(config_path).expanduser()) \
+        if config_path else None
+    if value is not None:
+        return value
+    value = _hermes_config_value_from(field, hermes_home() / "config.yaml")
+    if value is not None:
+        return value
+    env_override = os.environ.get("HERMES_HOME")
+    if env_override:
+        default_home = _platform_default_home()
+        if default_home != hermes_home():
+            value = _hermes_config_value_from(field, default_home / "config.yaml")
+    return value
+
+
+def _platform_default_home() -> Path:
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", "")) if os.environ.get("LOCALAPPDATA") else Path.home() / "AppData" / "Local"
+        return base / "hermes"
+    return Path.home() / ".hermes"
+
+
+def _hermes_config_value_from(field: str, config_file: Path) -> str | None:
+    """Read one scalar from a hermes config.yaml file (full file path)."""
+    cfg = config_file
     try:
         text = cfg.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -92,10 +125,11 @@ def resolve_worker_env(cfg: dict[str, Any]) -> dict[str, str]:
     """Expand ``worker_env`` values: ``@hermes:<field>`` tokens resolved from
     the hermes config, plain values passed through."""
     out: dict[str, str] = {}
+    pinned = cfg.get("hermes_config_path") or None
     for key, value in (cfg.get("worker_env") or {}).items():
         sval = str(value)
         if sval.startswith("@hermes:"):
-            resolved = hermes_config_value(sval[len("@hermes:"):])
+            resolved = hermes_config_value(sval[len("@hermes:"):], pinned)
             if resolved is not None:
                 out[key] = resolved
         else:

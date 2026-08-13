@@ -417,10 +417,14 @@ class WorkerBackend:
                 pass
 
         rc = proc.returncode
-        if terminal is not None and terminal.get("type") == "finished":
+        if terminal is not None and terminal.get("type") in ("finished", "cancelled", "failed"):
+            # cancelled/failed runs may still have written artifacts (vulnerabilities
+            # are persisted live during the scan) — carry run_dir back so the record
+            # can point strix_report at the on-disk files.
             return RunOutcome(
-                ok=True,
+                ok=terminal.get("type") == "finished",
                 run_dir=terminal.get("run_dir"),
+                error=terminal.get("error") if terminal.get("type") != "finished" else None,
             )
         error = terminal.get("error") if terminal else None
         if not error and rc not in (0, None):

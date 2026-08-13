@@ -107,38 +107,43 @@ class ScanManager:
         self._reconcile_from_artifacts()
 
     def _reconcile_from_artifacts(self) -> None:
-        """Finalize records whose hermes parent died mid-scan: the worker
-        (detached) may have completed and written artifacts after the parent
-        exited.  If ``<runs_cwd>/strix_runs/<scan_id>/run.json`` says the run
-        is done, mark the record finished and pull counts from disk."""
+        """Finalize records whose hermes parent died mid-scan, or whose run_dir
+        never made it into the record (cancelled/failed but artifacts on disk —
+        vulnerabilities persist live during the scan).  If a run dir exists for
+        the scan_id, always point the record at it and pull counts; only flip
+        the status when run.json carries a terminal state."""
         import pathlib as _pl
 
         base = _pl.Path(self._cfg.get("runs_cwd") or "").expanduser() or None
         changed = False
         for rec in list(self._records.values()):
-            if rec.status != "running":
+            if rec.run_dir or rec.status not in ("running", "cancelled", "failed"):
                 continue
             run_dir = (base / "strix_runs" / rec.scan_id) if base else None
             if run_dir is None:
                 run_dir = _pl.Path.cwd() / "strix_runs" / rec.scan_id
-            rj = run_dir / "run.json"
-            if not rj.exists():
-                continue
-            try:
-                meta = json.loads(rj.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            status = meta.get("status")
-            if status not in ("completed", "stopped", "failed", "interrupted"):
+            if not run_dir.is_dir():
                 continue
             summary = read_run_artifacts(run_dir)
-            self._bump(rec,
-                       status="finished" if status == "completed" else "failed",
-                       run_dir=str(run_dir),
-                       vuln_count=summary["vuln_count"],
-                       by_severity=summary["by_severity"],
-                       report_head=summary["report_head"],
-                       error=None if status == "completed" else f"run ended as {status}")
+            terminal = None
+            rj = run_dir / "run.json"
+            if rj.exists():
+                try:
+                    terminal = json.loads(rj.read_text(encoding="utf-8")).get("status")
+                except (OSError, json.JSONDecodeError):
+                    terminal = None
+            fields = dict(run_dir=str(run_dir),
+                          vuln_count=summary["vuln_count"],
+                          by_severity=summary["by_severity"],
+                          report_head=summary["report_head"])
+            if terminal in ("completed", "stopped", "failed", "interrupted"):
+                if terminal == "completed" and rec.status != "finished":
+                    fields["status"] = "finished"
+                    fields["error"] = None
+                elif terminal != "completed" and rec.status != "failed":
+                    fields["status"] = "failed"
+                    fields["error"] = f"run ended as {terminal}"
+            self._bump(rec, **fields)
             changed = True
         if changed:
             self._persist()
@@ -166,6 +171,8 @@ class ScanManager:
             self._cfg, chat_id=chat_id, user_id=user_id, target=target, confirm=confirm
         )
         if not decision.allowed:
+            audit(self._cfg, action="authz_denied", chat_id=chat_id, user_id=user_id,
+                  target=target, decision=decision.reason)
             raise AuthError(decision, f"not authorized: {decision.reason}")
 
     async def start(
@@ -191,6 +198,9 @@ class ScanManager:
             self._cfg, chat_id=chat_id, user_id=user_id, target=target, confirm=confirm
         )
         if not decision.allowed:
+            audit(self._cfg, action="scan_start_denied", chat_id=chat_id, user_id=user_id,
+                  target=target, scan_mode=scan_mode, budget=budget,
+                  decision=decision.reason)
             raise AuthError(decision, f"not authorized: {decision.reason}")
         audit(self._cfg, action="scan_start", chat_id=chat_id, user_id=user_id,
               target=target, scan_mode=scan_mode, budget=budget,
@@ -261,7 +271,13 @@ class ScanManager:
             if outcome.ok and outcome.run_dir:
                 self._bump(record, status="finished", run_dir=outcome.run_dir)
             else:
-                self._bump(record, status="failed", error=outcome.error or "unknown failure")
+                if outcome.run_dir:
+                    # cancelled/failed runs may still have on-disk artifacts
+                    # (vulnerabilities persist live) — keep the pointer so
+                    # strix_report can read them.
+                    self._bump(record, run_dir=outcome.run_dir)
+                self._bump(record, status=record.status if record.status == "cancelled"
+                           else "failed", error=outcome.error or "unknown failure")
             audit(self._cfg, action="scan_end", scan_id=scan_id, target=record.target,
                   status=record.status, run_dir=record.run_dir)
         finally:

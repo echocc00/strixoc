@@ -107,6 +107,13 @@ def test_hermes_config_token_resolution(tmp_path, monkeypatch):
 
 
 def test_hermes_config_token_quoted_and_missing(tmp_path, monkeypatch):
+    # isolate the fallback default home from the real host config
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    if sys.platform == "win32":
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
+    else:
+        monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     hh = tmp_path / "hh"
     monkeypatch.setenv("HERMES_HOME", str(hh))
     cfg_file = hh / "config.yaml"
@@ -114,3 +121,23 @@ def test_hermes_config_token_quoted_and_missing(tmp_path, monkeypatch):
     cfg_file.write_text('api_key: "sk-xyz"\nbase_url:  \n', encoding="utf-8")
     assert cfgmod.hermes_config_value("api_key") == "sk-xyz"
     assert cfgmod.hermes_config_value("base_url") is None
+
+def test_hermes_config_value_pinned_path(monkeypatch, tmp_path):
+    """hermes_config_path pins @hermes: token resolution regardless of the
+    active profile/home env dance (P0-2: 401 ended the Feishu scan)."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "somewhere-none"))
+    pin = tmp_path / "base" / "config.yaml"
+    pin.parent.mkdir(parents=True)
+    pin.write_text("api_key: sk-pinned-1\nbase_url: https://api.minimaxi.com/v1\n", encoding="utf-8")
+    assert cfgmod.hermes_config_value("api_key", pin) == "sk-pinned-1"
+    assert cfgmod.hermes_config_value("base_url", pin) == "https://api.minimaxi.com/v1"
+
+
+def test_resolve_worker_env_uses_pinned_path(monkeypatch, tmp_path):
+    from plugin import config
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "nope"))
+    pin = tmp_path / "cfg.yaml"
+    pin.write_text("api_key: sk-pinned-2\n", encoding="utf-8")
+    cfg = {"worker_env": {"MINIMAX_API_KEY": "@hermes:api_key"}, "hermes_config_path": str(pin)}
+    assert config.resolve_worker_env(cfg) == {"MINIMAX_API_KEY": "sk-pinned-2"}

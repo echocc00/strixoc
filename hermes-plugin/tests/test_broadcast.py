@@ -10,6 +10,15 @@ class FakeEvent:
         self.platform = platform
         self.chat_id = chat_id
         self.text = text
+        self.source = type("Src", (), {"platform": platform, "chat_id": chat_id})()
+
+
+class FakeSourceEvent:
+    """v0.19.1 layout: identity lives on ``event.source`` only."""
+
+    def __init__(self, platform, chat_id, text=""):
+        self.text = text
+        self.source = type("Src", (), {"platform": platform, "chat_id": chat_id})()
 
 
 class FakeAdapter:
@@ -103,3 +112,28 @@ def test_dispatch_hook_ignores_other_platforms():
 def test_dispatch_hook_missing_args():
     assert broadcast.pre_gateway_dispatch_hook(event=None, gateway=None) is None
     assert broadcast.pre_gateway_dispatch_hook() is None
+
+async def test_dispatch_hook_latches_source_event_layout():
+    """v0.19.1 MessageEvent carries identity on event.source only (P0-2
+    golden-path fix: 'missing platform/chat — skip' broke Feishu broadcast)."""
+    adapter = FakeAdapter()
+    gw = FakeGateway(adapter)
+    broadcast.set_channel(None)
+    ret = broadcast.pre_gateway_dispatch_hook(
+        event=FakeSourceEvent("feishu", "oc_abc123", "/pentest x"), gateway=gw)
+    assert ret is None
+    assert broadcast.get_channel() is not None
+    broadcast.get_channel()("hello")
+    await asyncio.sleep(0.05)
+    assert adapter.sent == [("oc_abc123", "hello")]
+    broadcast.set_channel(None)
+
+
+def test_dispatch_hook_skips_without_source_identity():
+    adapter = FakeAdapter()
+    gw = FakeGateway(adapter)
+    broadcast.set_channel(reveal := lambda t: None) if False else None
+    class Bare:
+        text = "x"
+    ret = broadcast.pre_gateway_dispatch_hook(event=Bare(), gateway=gw)
+    assert ret is None and broadcast.get_channel() is None
