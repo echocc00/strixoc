@@ -2,7 +2,7 @@
 
 import asyncio
 
-import broadcast
+from plugin import broadcast
 
 
 class FakeEvent:
@@ -44,7 +44,7 @@ def test_renderers():
 def test_no_channel_no_send():
     """Fan-out through the channel: phase/vuln/finished rendered and sent."""
     received = []
-    from runner import get_manager
+    from plugin.runner import get_manager
 
     mgr = get_manager()
     broadcast.set_channel(received.append)

@@ -19,7 +19,7 @@ strix = pytest.importorskip("strix", reason="strix not installed (requires py>=3
 # fresh import of the worker runtime so it picks up our stubbing below
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "plugin"))
 import worker_runtime  # noqa: E402
-from backends import read_run_artifacts  # noqa: E402
+from plugin.backends import read_run_artifacts  # noqa: E402
 
 
 @pytest.fixture()
@@ -166,3 +166,76 @@ def test_worker_vuln_callback_realtime(tmp_path, monkeypatch):
     assert len(vulns) == 1
     assert vulns[0]["report"]["title"] == "XSS"
     assert "phase" in [ev["type"] for ev in emitted]
+
+
+def test_worker_synthesizes_terminal_report_when_finish_scan_never_called(tmp_path, monkeypatch):
+    """Real-golden-path behavior (2026-08-13, MiniMax): the root agent often
+    ends with a text turn instead of calling finish_scan -> no executive
+    report and run.json stuck at 'running'. The worker must synthesize a
+    minimal terminal report so artifacts are always complete."""
+    monkeypatch.chdir(tmp_path)
+    from strix.core import runner as runner_mod
+
+    async def fake_run_strix_scan(**kw):
+        if callable(kw.get("status_sink")):
+            kw["status_sink"]("scanning")
+        from strix.report.state import get_global_report_state
+
+        get_global_report_state().add_vulnerability_report(
+            title="AuthZ gap", severity="high", description="BFLA", cwe="CWE-862")
+        # NOTE: no update_scan_final_fields — simulates the text-turn ending
+        return None
+
+    monkeypatch.setattr(runner_mod, "run_strix_scan", fake_run_strix_scan)
+    cfg = build_scan_config_local("http://localhost:1", "quick", "sc-synth", "sc-synth")
+    req = {"scan_id": "sc-synth", "scan_config": cfg, "image": "", "max_budget_usd": 1.0}
+    emitted = []
+    rc = asyncio.run(
+        worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event())
+    )
+    assert rc["ok"]
+    run_dir = Path(tmp_path) / "strix_runs" / "sc-synth"
+    md = run_dir / "penetration_test_report.md"
+    assert md.exists(), "worker must synthesize the executive report"
+    assert "high" in md.read_text(encoding="utf-8").lower()
+    run_json = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    assert run_json["status"] == "completed"
+    finish = [ev for ev in emitted if ev["type"] == "finished"][0]
+    assert finish["vuln_count"] == 1 and finish["by_severity"] == {"high": 1}
+
+
+def test_worker_resolves_image_from_settings_when_request_empty(tmp_path, monkeypatch):
+    """Golden-path fix (2026-08-13): the plugin's scan request carried no
+    image, and the worker passed image='' to run_strix_scan which hung in
+    sandbox bring-up. The worker must fall back to its own strix settings
+    (~/.strix/cli-config.json runtime.image)."""
+    import strix.config.loader as loader_mod
+    from strix.core import runner as runner_mod
+
+    captured = {}
+
+    async def fake_run_strix_scan(**kw):
+        captured["image"] = kw.get("image")
+        if callable(kw.get("status_sink")):
+            kw["status_sink"]("ok")
+        from strix.report.state import get_global_report_state
+
+        get_global_report_state().update_scan_final_fields(
+            executive_summary="e", methodology="m", technical_analysis="t",
+            recommendations="r")
+        return None
+
+    class FakeSettings:
+        runtime = type("R", (), {"image": "ghcr.io/usestrix/strix-sandbox:1.3.0"})()
+
+    monkeypatch.setattr(runner_mod, "run_strix_scan", fake_run_strix_scan)
+    monkeypatch.setattr(loader_mod, "load_settings", lambda: FakeSettings())
+
+    cfg = build_scan_config_local("http://localhost:1", "quick", "sc-img", "sc-img")
+    req = {"scan_id": "sc-img", "scan_config": cfg, "image": "", "max_budget_usd": 1.0}
+    emitted = []
+    rc = asyncio.run(
+        worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event())
+    )
+    assert rc["ok"]
+    assert captured["image"] == "ghcr.io/usestrix/strix-sandbox:1.3.0"

@@ -22,10 +22,26 @@ import os
 import sys
 import threading
 from pathlib import Path
+from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from worker_runtime import execute  # noqa: E402
+
+Emit = Callable[[dict], None]
+
+
+def make_emit(stream) -> Emit:
+    """Worker->parent event emitter.  If the parent is gone (closed pipe after
+    the hermes session exited and the detached worker kept scanning), the scan
+    must survive: events are best-effort, never fatal."""
+    def emit(ev: dict) -> None:
+        try:
+            print(json.dumps(ev, ensure_ascii=False), file=stream, flush=True)
+        except OSError:
+            pass
+
+    return emit
 
 
 def _main() -> int:
@@ -57,8 +73,7 @@ def _main() -> int:
     t = threading.Thread(target=watch_stdin, daemon=True)
     t.start()
 
-    def emit(ev: dict) -> None:
-        print(json.dumps(ev, ensure_ascii=False), flush=True)
+    emit = make_emit(sys.stdout)
 
     try:
         outcome = loop.run_until_complete(

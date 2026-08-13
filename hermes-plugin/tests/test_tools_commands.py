@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-import commands
-import strix_tools as tools
+from plugin import commands
+from plugin import strix_tools as tools
 
 
 class FakeMgr:
@@ -25,8 +25,8 @@ class FakeMgr:
 
     async def start(self, target, **kw):
         if not self.start_ok:
-            from runner import AuthError, ScanManager as _unused  # noqa: F401
-            from authz import AuthDecision
+            from plugin.runner import AuthError, ScanManager as _unused  # noqa: F401
+            from plugin.authz import AuthDecision
 
             raise AuthError(AuthDecision(False, self.authz_reason or "confirm_required"),
                             "blocked")
@@ -37,8 +37,8 @@ class FakeMgr:
 
     def authorize_or_raise(self, *, target, chat_id, user_id, confirm):
         if not self.start_ok:
-            from authz import AuthDecision
-            from runner import AuthError
+            from plugin.authz import AuthDecision
+            from plugin.runner import AuthError
 
             raise AuthError(AuthDecision(False, self.authz_reason or "confirm_required"),
                             "blocked")

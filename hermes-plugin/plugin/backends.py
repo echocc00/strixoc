@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -264,6 +265,15 @@ def _throttled(fn: Callable[[str, Any], None], interval: float = 2.0) -> Callabl
 # ---------------------------------------------------------------------------
 
 
+def _spawn_flags() -> dict[str, Any]:
+    """Worker must outlive the hermes session that spawned it (golden-path
+    fix 2026-08-13): posix child sessions detach; win32 uses DETACHED_PROCESS."""
+    return {
+        "start_new_session": True,
+        "creationflags": subprocess.DETACHED_PROCESS if os.name == "nt" else 0,
+    }
+
+
 class WorkerBackend:
     """Spawn strix's Python-3.12 worker and talk JSON-lines over stdio."""
 
@@ -324,6 +334,7 @@ class WorkerBackend:
                 stderr=asyncio.subprocess.PIPE,
                 env=env,
                 cwd=cwd,
+                **_spawn_flags(),
             )
         except FileNotFoundError as exc:
             raise BackendConfigError(f"worker interpreter not executable: {python}") from exc

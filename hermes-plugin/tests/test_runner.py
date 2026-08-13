@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from runner import AuthError, ScanManager
+from plugin.runner import AuthError, ScanManager
 
 
 class StubBackend:
@@ -31,7 +31,7 @@ class StubBackend:
 
 
 def make_manager(tmp_path, backend=None):
-    import config as cfgmod
+    from plugin import config as cfgmod
 
     cfg = cfgmod.load_config(path=None)
     cfg["allowed_targets"] = ["localhost"]
@@ -158,3 +158,72 @@ async def test_subscribers_get_events(tmp_path):
     await mgr.wait_idle(seconds=3)
     kinds = [k for k, _ in seen]
     assert "vuln" in kinds and "finished" in kinds
+
+
+async def test_start_injects_worker_env(tmp_path, monkeypatch, default_config):
+    """worker_env @hermes:api_key tokens resolve from the hermes config.yaml
+    and travel into the backend request (production key bridging)."""
+    from plugin import config as cfgmod
+
+    hh = tmp_path / "hh"
+    monkeypatch.setenv("HERMES_HOME", str(hh))
+    (hh / "config.yaml").parent.mkdir(parents=True)
+    (hh / "config.yaml").write_text(
+        "provider:\n  api_key: sk-prod-1\n  base_url: https://api.minimaxi.com/v1\n",
+        encoding="utf-8",
+    )
+    cfg = default_config
+    cfg["allowed_targets"] = ["localhost"]
+    cfg["scans_db"] = str(tmp_path / "scans.json")
+    cfg["worker_env"] = {
+        "STRIX_LLM": "litellm/minimax/MiniMax-M3",
+        "MINIMAX_API_KEY": "@hermes:api_key",
+        "MINIMAX_API_BASE": "@hermes:base_url",
+    }
+    backend = StubBackend()
+    mgr = ScanManager(cfg, backend=backend)
+    await mgr.start(target="http://localhost:5", scan_mode="quick", budget=1.0,
+                    user_instructions="", chat_id="cli", user_id="u1", confirm=True)
+    await mgr.wait_idle(seconds=3)
+    request = backend.calls[-1]
+    assert request["extra_env"] == {
+        "STRIX_LLM": "litellm/minimax/MiniMax-M3",
+        "MINIMAX_API_KEY": "sk-prod-1",
+        "MINIMAX_API_BASE": "https://api.minimaxi.com/v1",
+    }
+
+def test_reconcile_finalizes_records_from_artifacts(tmp_path):
+    """Golden-path gap (2026-08-13): the hermes parent can die mid-scan; the
+    detached worker still writes artifacts. On next load the manager must
+    reconcile 'running' records against the run dirs."""
+    import json as _json
+
+    runs_cwd = tmp_path / "runs"
+    run_dir = runs_cwd / "strix_runs" / "strix-dead1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(_json.dumps({"status": "completed"}), encoding="utf-8")
+    (run_dir / "vulnerabilities.json").write_text(
+        _json.dumps([{"id": "v1", "severity": "critical"}]),
+        encoding="utf-8",
+    )
+    (run_dir / "penetration_test_report.md").write_text("# S\nbody", encoding="utf-8")
+    scans_db = tmp_path / "scans.json"
+    scans_db.write_text(_json.dumps([{
+        "scan_id": "strix-dead1", "status": "running", "target": "http://localhost:9",
+        "scan_mode": "quick", "budget": 2.0, "chat_id": "cli", "user_id": "",
+        "created_at": "2026-08-13T00:00:00+00:00", "updated_at": "2026-08-13T00:00:00+00:00",
+    }]), encoding="utf-8")
+
+    from plugin import config as cfgmod
+
+    cfg = cfgmod.load_config(path=None)
+    cfg["allowed_targets"] = ["localhost"]
+    cfg["scans_db"] = str(scans_db)
+    cfg["runs_cwd"] = str(runs_cwd)
+    mgr = ScanManager(cfg, backend=StubBackend())
+    rec = mgr.get("strix-dead1")
+    assert rec["status"] == "finished", rec
+    assert rec["run_dir"] == str(run_dir)
+    assert rec["vuln_count"] == 1
+    assert rec["by_severity"] == {"critical": 1}
+    assert rec["report_head"]  # pulled from the synthesized/real report
