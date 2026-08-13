@@ -132,54 +132,6 @@ async def test_strix_health():
     assert out["ok"] is True and out["backend"] == "fake"
 
 
-# --- strix_delegate ---------------------------------------------------------
-
-
-async def test_delegate_ok(fake_manager, monkeypatch):
-    calls = {"a": None, "kw": None}
-
-    def fake_delegate_task(*a, **kw):
-        calls["a"] = a
-        calls["kw"] = kw
-        return '{"results": [{"goal": "probe", "status": "completed"}]}'
-
-    import types
-
-    fake_mod = types.SimpleNamespace(delegate_task=fake_delegate_task)
-    try:
-        import importlib
-
-        real_tools = importlib.import_module("tools")
-    except ImportError:
-        real_tools = None
-    monkeypatch.setattr(real_tools, "delegate_tool", fake_mod, raising=False) \
-        if real_tools is not None else None
-    out = json.loads(await tools.HANDLERS["_delegate"](
-        {"target": "http://localhost:3000", "goal": "probe /api",
-         "confirm_authorized": True}))
-    assert out["results"][0]["status"] == "completed", out
-    kw = calls["kw"] or {}
-    assert calls["a"] == (), f"positional args leaked: {calls}"
-    assert kw["role"] == "leaf"
-    assert kw["goal"].startswith("probe /api")
-    assert "Pentest discipline" in kw["goal"]
-    assert kw["context"] == "Authorized target to test: http://localhost:3000"
-
-
-async def test_delegate_blocked(fake_manager):
-    fake_manager.start_ok = False
-    fake_manager.authz_reason = "target_not_allowed"
-    out = json.loads(await tools.HANDLERS["_delegate"](
-        {"target": "http://evil.example.com", "goal": "x", "confirm_authorized": True}))
-    assert out["ok"] is False
-    assert out["decision"] == "target_not_allowed"
-
-
-async def test_delegate_missing_fields():
-    out = json.loads(await tools.HANDLERS["_delegate"]({"target": "x"}))
-    assert out["ok"] is False
-
-
 # --- commands -------------------------------------------------------------
 
 

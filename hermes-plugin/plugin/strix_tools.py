@@ -21,7 +21,6 @@ EMOJI = {
     "strix_cancel": "⏹️",
     "strix_history": "🗂️",
     "strix_health": "🩺",
-    "strix_delegate": "👥",
 }
 
 _SCAN_MODE_ENUM = {"type": "string", "enum": ["quick", "standard", "deep"], "default": "quick"}
@@ -100,29 +99,6 @@ TOOL_DEFS: list[dict[str, Any]] = [
         "description": "Plugin/worker configuration health: backend, allowlist, caps.",
         "schema": {"type": "object", "properties": {}},
         "handler": "_health",
-    },
-    {
-        "name": "strix_delegate",
-        "description": "Delegate a pentest task to a leaf sub-agent (delegate_task, "
-                       "role=leaf). Authorization gates the target first. Use for "
-                       "parallel/focused investigation; the sub-agent can use the "
-                       "strix tools itself.",
-        "schema": {
-            "type": "object",
-            "properties": {
-                "target": {"type": "string",
-                           "description": "URL / domain / IP the sub-agent may scan "
-                                          "(checked against the allowlist)"},
-                "goal": {"type": "string",
-                         "description": "what the sub-agent should do; the pentest "
-                                        "skill is inlined for you"},
-                "confirm_authorized": {"type": "boolean",
-                                       "description": "MUST be true"},
-                "max_iterations": {"type": "number", "default": 8},
-            },
-            "required": ["target", "goal", "confirm_authorized"],
-        },
-        "handler": "_delegate",
     },
 ]
 
@@ -253,46 +229,9 @@ async def _health(args: dict, **kw: Any) -> str:
     return _json(ok=True, **get_manager().health())
 
 
-async def _delegate(args: dict, **kw: Any) -> str:
-    from pathlib import Path
-
-    target = str(args.get("target") or "").strip()
-    goal = str(args.get("goal") or "").strip()
-    confirm = bool(args.get("confirm_authorized", False))
-    if not target or not goal:
-        return _err("target and goal are required")
-    try:
-        get_manager().authorize_or_raise(
-            target=target, chat_id=str(kw.get("chat_id") or "") or "cli",
-            user_id=str(kw.get("user_id") or ""), confirm=confirm,
-        )
-    except AuthError as exc:
-        return _err(f"delegate blocked: {exc.decision.reason}", target=target,
-                    decision=exc.decision.reason, fix=_authz_fix(exc.decision.reason))
-
-    skill_md = Path(__file__).resolve().parent / "skills" / "strix" / "SKILL.md"
-    skill_text = skill_md.read_text(encoding="utf-8") if skill_md.exists() else ""
-    full_goal = f"{goal}\n\n---\nPentest discipline (must follow):\n{skill_text}"
-    try:
-        # hermes' delegate_task — lazy import (plugin must load without hermes)
-        from tools import delegate_tool  # type: ignore[import-not-found]
-
-        result = delegate_tool.delegate_task(
-            goal=full_goal,
-            context=f"Authorized target to test: {target}",
-            max_iterations=int(args.get("max_iterations") or 8),
-            role="leaf",
-            parent_agent=kw.get("parent_agent"),
-        )
-        return str(result) if result else _err("delegate_task returned no result")
-    except Exception as exc:  # noqa: BLE001
-        return _err(f"delegate_task failed: {type(exc).__name__}: {exc}")
-
-
 HANDLERS = {
     "_scan": _scan, "_status": _status, "_report": _report,
     "_cancel": _cancel, "_history": _history, "_health": _health,
-    "_delegate": _delegate,
 }
 
 
