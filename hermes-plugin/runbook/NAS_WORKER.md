@@ -104,3 +104,21 @@ STRIX_WORKER_PYTHON=/volume1/soft/StrixWorker/venv/bin/python \
 - Hermes 进程本身永远不接 docker socket —— socket 只被 worker venv 的 python 使用。
 - 教训（2026-08-13）：在共享 NAS 上清理容器**必须按名字过滤**
   （`docker ps -aq --filter name=<pattern>`），绝不 `docker ps -aq | xargs docker rm -f`。
+## 9. P0-1 黄金路径（2026-08-13 追加：真实 hermes 会话全链路验证）
+
+✅ **已在 NAS hermes v0.19.1 真实会话里跑通完整生产调用链**（第五轮）：
+
+`hermes chat -q(工具指令) → 插件加载 → strix_scan 工具 → pre_tool_call 授权通过(audit) →
+ScanManager → WorkerBackend spawn(独立会话) → 真实 worker → 真实沙箱 → 真实多 agent 扫描
+→ vulnerabilities.json 11 个真实漏洞落盘(CWE-862/200/22/639...) → strix_status 轮询 → 如实汇报`
+
+过程中连环修掉 5 个生产级 bug（全部有回归测试）：
+1. hermes 按 namespaced package 加载插件 → 插件模块必须**相对导入**（绝对导入在 hermes 里直接 load 失败）
+2. `config_path()` 必须认 **HERMES_HOME**（服务用户 HOME 不可靠）
+3. 插件 request 不带 image → worker 从 **strix settings 兜底**（cli-config runtime.image）
+4. hermes 会话退出会杀 worker → worker spawn 用 **start_new_session 脱离会话** + emit 断管容错
+5. root agent 常以纯文本回合结束不调 finish_scan → worker **自动合成最小终态报告**；
+   hermes 重启后 ScanManager **从 artifacts 调和** 死掉的 running 记录
+
+关键环境要求（NAS 生产部署）：`HERMES_HOME=/volume1/soft/Hermes/.hermes` 必须传给 hermes
+进程；worker 独立 venv + docker 组 + ~/.strix 配置照旧。

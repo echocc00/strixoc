@@ -2,8 +2,8 @@
 
 import json
 
-import authz
-import config as cfgmod
+from plugin import authz
+from plugin import config as cfgmod
 
 
 def _cfg(**over):

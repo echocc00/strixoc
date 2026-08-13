@@ -31,6 +31,32 @@ def load_plugin_like_hermes():
     return mod
 
 
+def test_imports_work_without_repo_path_breadcrumbs():
+    """Regression (2026-08-13 NAS v0.19.1): plugin failed to LOAD with
+    'No module named runner' because hermes-side modules used absolute
+    imports and hermes never puts the plugin dir on sys.path (tests masked
+    it via conftest). hermes-side modules must be importable as a real
+    package with NO repo paths on sys.path, exactly like hermes loads them."""
+    import os
+    import subprocess
+
+    repo = Path(__file__).resolve().parent.parent
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    code = (
+        "from plugin import config, authz, backends, runner, strix_tools, "
+        "commands, broadcast;"
+        "m = runner.ScanManager();"  # exercises the __init__ import chain too
+        "print('IMPORTS_OK')"
+    )
+    p = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(repo), env=env, capture_output=True, text=True, timeout=60,
+    )
+    assert p.returncode == 0, p.stderr[-2000:]
+    assert "IMPORTS_OK" in p.stdout
+
+
 class StubCtx:
     def __init__(self):
         self.tools = []
@@ -112,15 +138,15 @@ def test_handlers_invoke_as_tools_do(monkeypatch):
     under that exact call shape (validated via asyncio.run on the handler)."""
     import asyncio
 
-    from strix_tools import HANDLERS
+    from plugin import strix_tools, strix_tools as _st
 
     mgr = type("M", (), {
         "get": lambda self, sid: None,
         "list_scans": lambda self, limit=10: [],
     })()
-    from strix_tools import _status
+    from plugin import strix_tools as _st
 
-    result = asyncio.run(_status({"scan_id": "x"}, session="s"))
+    result = asyncio.run(_st._status({"scan_id": "x"}, session="s"))
     data = json.loads(result)
     assert data["ok"] is False
 

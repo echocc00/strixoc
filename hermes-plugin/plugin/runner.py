@@ -19,13 +19,15 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from authz import AuthDecision, audit, check_authorization
-from backends import (
+from .authz import AuthDecision, audit, check_authorization
+from .backends import (
     BackendConfigError,
     InProcessBackend,
     WorkerBackend,
     build_scan_config,
+    read_run_artifacts,
 )
+from .config import resolve_worker_env as _resolve_worker_env
 
 Listener = Callable[[str, Any], None]  # (kind, payload)
 
@@ -73,7 +75,7 @@ class ScanManager:
         backend=None,
         scans_db: str | None = None,
     ) -> None:
-        import config as cfgmod
+        from . import config as cfgmod
 
         self._cfg = cfgmod.load_config(path="auto") if cfg is None else cfg
         self._db_path = Path(scans_db or os.path.expanduser(str(
@@ -102,6 +104,44 @@ class ScanManager:
             for d in data:
                 if isinstance(d, dict) and d.get("scan_id"):
                     self._records[d["scan_id"]] = ScanRecord.from_dict(d)
+        self._reconcile_from_artifacts()
+
+    def _reconcile_from_artifacts(self) -> None:
+        """Finalize records whose hermes parent died mid-scan: the worker
+        (detached) may have completed and written artifacts after the parent
+        exited.  If ``<runs_cwd>/strix_runs/<scan_id>/run.json`` says the run
+        is done, mark the record finished and pull counts from disk."""
+        import pathlib as _pl
+
+        base = _pl.Path(self._cfg.get("runs_cwd") or "").expanduser() or None
+        changed = False
+        for rec in list(self._records.values()):
+            if rec.status != "running":
+                continue
+            run_dir = (base / "strix_runs" / rec.scan_id) if base else None
+            if run_dir is None:
+                run_dir = _pl.Path.cwd() / "strix_runs" / rec.scan_id
+            rj = run_dir / "run.json"
+            if not rj.exists():
+                continue
+            try:
+                meta = json.loads(rj.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            status = meta.get("status")
+            if status not in ("completed", "stopped", "failed", "interrupted"):
+                continue
+            summary = read_run_artifacts(run_dir)
+            self._bump(rec,
+                       status="finished" if status == "completed" else "failed",
+                       run_dir=str(run_dir),
+                       vuln_count=summary["vuln_count"],
+                       by_severity=summary["by_severity"],
+                       report_head=summary["report_head"],
+                       error=None if status == "completed" else f"run ended as {status}")
+            changed = True
+        if changed:
+            self._persist()
 
     def _persist(self) -> None:
         try:
@@ -173,6 +213,7 @@ class ScanManager:
                 run_name=scan_id, scan_id=scan_id,
             ),
             "max_budget_usd": budget,
+            "extra_env": _resolve_worker_env(self._cfg),
         }
         cancel_event = asyncio.Event()
         self._cancel_events[scan_id] = cancel_event

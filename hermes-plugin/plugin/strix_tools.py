@@ -11,8 +11,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from backends import read_run_artifacts
-from runner import AuthError, get_manager
+from .backends import read_run_artifacts
+from .runner import AuthError, get_manager
 
 EMOJI = {
     "strix_scan": "🔒",

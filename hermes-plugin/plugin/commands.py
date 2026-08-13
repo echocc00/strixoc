@@ -11,7 +11,7 @@ import getpass
 import shlex
 from typing import Any
 
-from runner import AuthError, get_manager
+from .runner import AuthError, get_manager
 
 PENTEST_ARGS_HINT = (
     "<target> [--mode quick|standard|deep] [--budget 5] [--confirm-authorized]"

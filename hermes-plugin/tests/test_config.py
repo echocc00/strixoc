@@ -1,8 +1,9 @@
 """Config loading: defaults, file merge, path resolution, env override."""
 
+import sys
 from pathlib import Path
 
-import config as cfgmod
+from plugin import config as cfgmod
 
 
 def test_defaults_are_sane():
@@ -58,3 +59,58 @@ def test_env_override_config_path(tmp_path, monkeypatch):
     assert cfgmod.config_path() == f
     c = cfgmod.load_config()
     assert c["require_authorized_flag"] is False
+
+
+def test_config_path_honors_hermes_home(tmp_path, monkeypatch):
+    """Golden-path fix (2026-08-13): NAS runs with HERMES_HOME exported but
+    HOME of the service user differs — the plugin must look for strix.yaml
+    under HERMES_HOME, not the process HOME."""
+    monkeypatch.delenv("HERMES_STRIX_CONFIG", raising=False)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hh"))
+    monkeypatch.setenv("HOME", str(tmp_path / "elsewhere"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "elsewhere"))
+    assert cfgmod.config_path() == tmp_path / "hh" / "strix.yaml"
+    monkeypatch.delenv("HERMES_HOME")
+    assert cfgmod.config_path() == tmp_path / "elsewhere" / ".hermes" / "strix.yaml"
+
+
+# --- hermes config bridging (worker_env @hermes: tokens) ---------------------
+
+
+def test_hermes_home_resolution(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hh"))
+    assert cfgmod.hermes_home() == tmp_path / "hh"
+    monkeypatch.delenv("HERMES_HOME")
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    if sys.platform == "win32":
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
+        assert cfgmod.hermes_home() == tmp_path / "local" / "hermes"
+    else:
+        assert cfgmod.hermes_home() == tmp_path / ".hermes"
+
+
+def test_hermes_config_token_resolution(tmp_path, monkeypatch):
+    hh = tmp_path / "hh"
+    monkeypatch.setenv("HERMES_HOME", str(hh))
+    cfg_file = hh / "config.yaml"
+    cfg_file.parent.mkdir(parents=True)
+    cfg_file.write_text(
+        "model:\n  default: MiniMax-M3\n  provider: custom\n"
+        "  base_url: https://api.minimaxi.com/v1\n  api_key: sk-abc123\n",
+        encoding="utf-8",
+    )
+    assert cfgmod.hermes_config_value("api_key") == "sk-abc123"
+    assert cfgmod.hermes_config_value("base_url") == "https://api.minimaxi.com/v1"
+    assert cfgmod.hermes_config_value("model") == "MiniMax-M3"
+    assert cfgmod.hermes_config_value("nope") is None
+
+
+def test_hermes_config_token_quoted_and_missing(tmp_path, monkeypatch):
+    hh = tmp_path / "hh"
+    monkeypatch.setenv("HERMES_HOME", str(hh))
+    cfg_file = hh / "config.yaml"
+    cfg_file.parent.mkdir(parents=True)
+    cfg_file.write_text('api_key: "sk-xyz"\nbase_url:  \n', encoding="utf-8")
+    assert cfgmod.hermes_config_value("api_key") == "sk-xyz"
+    assert cfgmod.hermes_config_value("base_url") is None

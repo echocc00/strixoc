@@ -39,6 +39,18 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
     from strix.report.state import ReportState, set_global_report_state
     from strix.core.runner import run_strix_scan
 
+    # The plugin's scan request may carry no sandbox image; fall back to the
+    # worker's own strix settings (~/.strix/cli-config.json runtime.image) —
+    # the same resolution the strix CLI uses.
+    image = request.get("image") or ""
+    if not image:
+        try:
+            from strix.config.loader import load_settings
+
+            image = load_settings().runtime.image or ""
+        except Exception:  # noqa: BLE001
+            image = ""
+
     state = ReportState(scan_id)
     state.hydrate_from_run_dir()  # idempotent on fresh runs; enables resume
     state.set_scan_config(scan_config)
@@ -65,7 +77,7 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
             run_strix_scan(
                 scan_config=scan_config,
                 scan_id=scan_id,
-                image=request.get("image") or "",
+                image=image,
                 interactive=False,
                 max_budget_usd=request.get("max_budget_usd"),
                 max_turns=request.get("max_turns") or 500,
@@ -82,6 +94,7 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
             scan_task.cancel()
         await scan_task
         run_dir = str(state.get_run_dir())
+        _ensure_terminal_report(state)
         summary = read_run_artifacts(run_dir)
         emit({"type": "finished", "run_dir": run_dir, **summary})
         return {"ok": True, "run_dir": run_dir}
@@ -112,3 +125,30 @@ class _suppress:
 
     def __exit__(self, exc_type, exc, tb):
         return exc_type is not None and issubclass(exc_type, self._excs)
+
+
+def _ensure_terminal_report(state) -> None:
+    """If the root agent ended without calling finish_scan (a recurring
+    text-turn ending on some models), synthesize the terminal report so the
+    artifact set is complete: penetration_test_report.md + run.json
+    status=completed."""
+    if getattr(state, "final_scan_result", None) is not None:
+        return
+    reports = list(getattr(state, "vulnerability_reports", []) or [])
+    sev: dict[str, int] = {}
+    for r in reports:
+        s = str(r.get("severity", "info")).lower()
+        sev[s] = sev.get(s, 0) + 1
+    summary = (
+        "Scan completed without an agent-authored final report. "
+        f"Vulnerabilities filed: {len(reports)} "
+        f"({', '.join(f'{k}={v}' for k, v in sorted(sev.items())) or 'none'})."
+    )
+    state.update_scan_final_fields(
+        executive_summary=summary,
+        methodology="Strix autonomous scan (quick/standard/deep); see vulnerabilities.json "
+                    "and findings.sarif for the authoritative evidence.",
+        technical_analysis=summary,
+        recommendations="Review each finding in vulnerabilities.json; remediation steps are "
+                        "attached per finding where available.",
+    )

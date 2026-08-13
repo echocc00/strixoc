@@ -8,11 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from backends import (
+from plugin.backends import (
     BackendConfigError,
     InProcessBackend,
     RunOutcome,
     WorkerBackend,
+    _spawn_flags,
     build_scan_config,
     read_run_artifacts,
 )
@@ -239,6 +240,13 @@ def test_worker_python_resolution(monkeypatch):
     assert b._resolve_python() == "/opt/py312/bin/python"
     monkeypatch.setenv("STRIX_WORKER_PYTHON", "/env/py")
     assert WorkerBackend(worker_python="")._resolve_python() == "/env/py"
+
+
+def test_worker_spawn_detaches_from_parent_session():
+    """Golden-path fix (2026-08-13): the worker must survive the hermes CLI
+    session exiting (it was killed in the process-group teardown)."""
+    flags = _spawn_flags()
+    assert flags["start_new_session"] is True
 
 
 async def test_worker_protocol_events(tmp_path):
