@@ -2,6 +2,8 @@
 
 Hermes 插件，把 **Strix**（自主渗透测试 agent）接入 Hermes 的 CLI / Gateway（飞书 / Telegram / Web 等全端复用）。
 
+**角色边界**：Hermes = 接口/网关层，只做任务下发与汇报（`strix_scan` 原样翻译用户目标，不编排执行）；Strix = 执行层，方法学/多 agent 编排/报告全部在 Strix 内部（worker 进程内完成）。
+
 **架构**（与 IMPL_PLAN.md 一致）：
 
 ```

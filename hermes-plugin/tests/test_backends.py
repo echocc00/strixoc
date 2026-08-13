@@ -306,3 +306,22 @@ async def test_worker_eof_without_finished_is_error(tmp_path):
     )
     assert not outcome.ok
     assert outcome.error
+
+
+async def test_worker_cancelled_carries_run_dir(tmp_path):
+    """Cancelled/failed workers often leave artifacts on disk (vulnerabilities
+    persist live) — the outcome must carry run_dir so strix_report can read it
+    (2026-08-14: def7e7c9 record lost its run_dir after cancel)."""
+    script = tmp_path / "cancel_dir.py"
+    script.write_text(
+        "import json\n"
+        "print(json.dumps({'type': 'cancelled', 'run_dir': '/runs/c', 'error': 'cancelled'}), flush=True)\n",
+        encoding="utf-8",
+    )
+    backend = WorkerBackend(worker_python=sys.executable, worker_path=str(script))
+    outcome = await backend.start(
+        make_request(), sink=lambda k, p: None, cancel_event=asyncio.Event()
+    )
+    assert not outcome.ok
+    assert outcome.run_dir == "/runs/c"
+    assert outcome.error == "cancelled"

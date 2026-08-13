@@ -74,6 +74,7 @@ def failed_text(scan_id: str, error: str) -> str:
 def _on_scan_event(scan_id: str, kind: str, payload: Any) -> None:
     chan = _channel
     if chan is None:
+        logger.info("broadcast: event %s/%s dropped — no channel latched", scan_id, kind)
         return
     try:
         if kind == "phase" and isinstance(payload, str):
@@ -123,18 +124,29 @@ def pre_gateway_dispatch_hook(
     progress into it.  Returns None (normal dispatch) always."""
     try:
         if event is None or gateway is None:
+            logger.info("broadcast: dispatch hook fired without event/gateway — skip")
             return None
-        platform = getattr(event, "platform", None)
-        chat_id = getattr(event, "chat_id", None)
+        # v0.19.1 MessageEvent carries identity on ``source`` (gateway/platforms/
+        # base.py canonical pattern); newer builds may expose top-level attrs.
+        source = getattr(event, "source", None)
+        platform = getattr(source, "platform", None) or getattr(event, "platform", None)
+        chat_id = getattr(source, "chat_id", None) or getattr(event, "chat_id", None)
         if platform is None or chat_id is None:
+            logger.info("broadcast: dispatch hook missing platform/chat "
+                        "(platform=%r chat=%r source=%r) — skip",
+                        platform, chat_id, bool(source))
             return None
         adapters = getattr(gateway, "adapters", None)
         if not adapters or platform not in adapters:
+            logger.info("broadcast: no adapter for platform %s (adapters=%s) — skip",
+                        platform, list(adapters or {}).__class__.__name__ if adapters else None)
             return None
         adapter = adapters[platform]
+        logger.info("broadcast: latching gateway chat -> platform=%s chat=%s", platform, chat_id)
 
         def send(text: str) -> None:
             try:
+                logger.info("broadcast: sending to %s: %.120s", chat_id, text.replace("\n", " "))
                 coro = adapter.send(chat_id, text)
                 try:
                     asyncio.get_running_loop().create_task(coro)

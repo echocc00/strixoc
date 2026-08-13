@@ -86,7 +86,6 @@ def test_register_declares_surface():
     assert names == [
         "strix_scan", "strix_status", "strix_report",
         "strix_cancel", "strix_history", "strix_health",
-        "strix_delegate",
     ]
     for t in ctx.tools:
         assert t["toolset"] == "strix"

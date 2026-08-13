@@ -227,3 +227,38 @@ def test_reconcile_finalizes_records_from_artifacts(tmp_path):
     assert rec["vuln_count"] == 1
     assert rec["by_severity"] == {"critical": 1}
     assert rec["report_head"]  # pulled from the synthesized/real report
+
+
+def test_reconcile_hooks_cancelled_record_to_artifacts(tmp_path):
+    """Reconcile (2026-08-14): cancelled/failed records with on-disk artifacts
+    (run.json still 'running', e.g. worker died without writing a terminal
+    state) must still get run_dir + counts so strix_report can read them."""
+    import json as _json
+
+    runs_cwd = tmp_path / "runs"
+    run_dir = runs_cwd / "strix_runs" / "strix-half1"
+    (run_dir / "vulnerabilities").mkdir(parents=True)
+    run_dir.mkdir(exist_ok=True)
+    (run_dir / "run.json").write_text(_json.dumps({"status": "running"}), encoding="utf-8")
+    (run_dir / "vulnerabilities.json").write_text(
+        _json.dumps([{"id": "v1", "severity": "critical"}, {"id": "v2", "severity": "low"}]),
+        encoding="utf-8",
+    )
+    scans_db = tmp_path / "scans.json"
+    scans_db.write_text(_json.dumps([{
+        "scan_id": "strix-half1", "status": "cancelled", "target": "http://localhost:9",
+        "scan_mode": "quick", "budget": 2.0, "chat_id": "cli", "user_id": "",
+        "created_at": "2026-08-13T00:00:00+00:00", "updated_at": "2026-08-13T00:00:00+00:00",
+    }]), encoding="utf-8")
+
+    from plugin import config as cfgmod
+
+    cfg = cfgmod.load_config(path=None)
+    cfg["scans_db"] = str(scans_db)
+    cfg["runs_cwd"] = str(runs_cwd)
+    mgr = ScanManager(cfg, backend=StubBackend())
+    rec = mgr.get("strix-half1")
+    assert rec["run_dir"] == str(run_dir), rec
+    assert rec["vuln_count"] == 2
+    assert rec["by_severity"] == {"critical": 1, "low": 1}
+    assert rec["status"] == "cancelled"  # no terminal run.json state -> keep status
