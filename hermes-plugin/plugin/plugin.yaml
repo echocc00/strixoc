@@ -1,0 +1,7 @@
+name: strix
+version: "0.1.0"
+description: "Authorized autonomous pentest scans via Strix (worker backend). Registers strix_scan/status/report/cancel/history/health tools, /pentest and /strix slash commands, pre_tool_call authorization and transform_tool_result scan-reminder hooks."
+author: "SecOpent"
+hooks:
+  - pre_tool_call
+  - transform_tool_result

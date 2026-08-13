@@ -4,6 +4,3 @@ __pycache__/
 .pytest_cache/
 strix_runs/
 *.egg-info/
-
-# pytest
-.pytest_cache/
