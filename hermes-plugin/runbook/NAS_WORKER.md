@@ -122,3 +122,21 @@ ScanManager → WorkerBackend spawn(独立会话) → 真实 worker → 真实�
 
 关键环境要求（NAS 生产部署）：`HERMES_HOME=/volume1/soft/Hermes/.hermes` 必须传给 hermes
 进程；worker 独立 venv + docker 组 + ~/.strix 配置照旧。
+
+## 10. 进程托管（systemd，2026-08-14 落地）
+
+飞书网关由 **systemd 守护**（此前 nohup 手工进程：进程死/NAS 重启即失联、重启有锁冲突）：
+
+```bash
+systemctl status hermes-strix-feishu     # 状态（MainPID / active）
+systemctl restart hermes-strix-feishu    # 统一重启入口（一键，避免 pkill+锁冲突）
+journalctl -u hermes-strix-feishu -f     # 实时日志（feishu-gw.log 与其等价）
+```
+
+- unit：`/etc/systemd/system/hermes-strix-feishu.service`（root；`Restart=always` + `RestartSec=5`；
+  `EnvironmentFile=/volume1/soft/Hermes/.feishu-gateway.env`（600）；锁目录独立
+  `locks-feishu-p0` 与生产网关互不干扰；开机自启 `enable`）
+- **自愈已验证**：`kill -9` 主进程 → 5s 后自动拉起（2026-08-14 实测 222429→222758）
+- 与生产网关的关系不变：生产 = `hermes-gateway.service`（root，base home）；
+  飞书测试/集成 = `hermes-strix-feishu.service`（profile feishu-p0）
+- 配置/插件更新后：`systemctl restart hermes-strix-feishu`（不再手动 pkill）

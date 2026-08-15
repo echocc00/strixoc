@@ -4,6 +4,28 @@ All notable changes to the `hermes-plugin` (Strix × Hermes integration) are
 documented here.  Plugin version is independent of the vendored strix-agent
 version (upstream tracks its own releases).
 
+## [0.2.1] - 2026-08-16
+
+### Fixes
+
+- **MCP gateway bridge（新模块 `plugin/mcp.py`）**：hermes v0.19/v0.20 的
+  `gateway run` 被 `_command_has_dedicated_mcp_startup` 排除在 inline MCP
+  discovery 之外、gateway executor 又不启动它 -- 配置的 `mcp_servers` 永远
+  不会被发现。插件在 gateway 进程内触发 dashboard/CLI 同款的
+  `start_background_mcp_discovery`（幂等、失败安全、5s 有界等待）。
+- `register()` 外层异常不再静默 `pass`，降级为 debug 日志（桥模块自身已
+  warning，双层吞噬会掩盖插件安装损坏）。
+- `plugin.yaml` 版本追平（0.1.0 -> 0.2.1；0.2.0 发布时漏 bump，只改了
+  pyproject.toml）。
+- `test_mcp.py` 测试隔离：真 hermes 已导入时 `from hermes_cli import
+  mcp_startup` 走包属性、绕过 `sys.modules` 里的 fake（曾触发真实
+  discovery 线程）；missing-hermes 用例改用 `sys.modules=None` 语义。
+
+### Ops
+
+- NAS_WORKER.md 新增 §10 进程托管：飞书网关 systemd 守护
+  （`hermes-strix-feishu.service`，Restart=always，自愈已实测）。
+
 ## [0.2.0] - 2026-08-14
 
 ### Architecture (interface-agent doctrine)

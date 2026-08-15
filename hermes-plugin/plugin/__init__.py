@@ -69,3 +69,16 @@ def register(ctx) -> None:
         "pre_gateway_dispatch",
         broadcast.pre_gateway_dispatch_hook,
     )
+
+    # hermes gateway-run never starts MCP discovery (v0.19/v0.20);
+    # trigger the same startup the dashboard/CLI paths use from the plugin.
+    # The bridge swallows its own errors; this guard only covers a broken
+    # plugin install (missing module) so register() never crashes the gateway.
+    import logging
+
+    try:
+        from . import mcp
+
+        mcp.ensure_gateway_mcp_startup()
+    except Exception:  # noqa: BLE001
+        logging.getLogger(__name__).debug("MCP gateway bridge unavailable", exc_info=True)
