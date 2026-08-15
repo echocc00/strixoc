@@ -16,7 +16,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -35,12 +35,12 @@ class AuthDecision:
 class _RuleSet:
     exact: set[str] = field(default_factory=set)
     suffix: dict[str, None] = field(default_factory=dict)  # "*.domain"
-    prefix: list[str] = field(default_factory=list)        # "prefix.*"
-    urls: list[str] = field(default_factory=list)          # full URL prefixes
+    prefix: list[str] = field(default_factory=list)  # "prefix.*"
+    urls: list[str] = field(default_factory=list)  # full URL prefixes
     subnets: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = field(default_factory=list)
 
     @classmethod
-    def from_rules(cls, rules: list[str]) -> "_RuleSet":
+    def from_rules(cls, rules: list[str]) -> _RuleSet:
         rs = cls()
         for r in rules:
             r = (r or "").strip()
@@ -103,7 +103,7 @@ def target_allowed(target: str, rules: list[str]) -> AuthDecision:
             if ip in net:
                 return AuthDecision(True, "ok", matched=str(net))
     for url in rs.urls:
-        if t == url or t.startswith(url) and t[len(url) : len(url) + 1] in {"/", "?"}:
+        if t == url or (t.startswith(url) and t[len(url) : len(url) + 1] in {"/", "?"}):
             return AuthDecision(True, "ok", matched=url)
     return AuthDecision(False, "target_not_allowed")
 
@@ -132,7 +132,7 @@ def audit(cfg: dict[str, Any], *, action: str, ts: str | None = None, **fields: 
     not be able to break the scan path."""
     path = Path(os.path.expanduser(str(cfg.get("audit_log") or DEFAULT_AUDIT_LOG)))
     rec = {
-        "ts": ts or datetime.now(timezone.utc).isoformat(),
+        "ts": ts or datetime.now(UTC).isoformat(),
         "action": action,
         **fields,
     }
@@ -168,12 +168,15 @@ def pre_tool_call_hook(
         return {"action": "block", "message": "strix_scan: target is required"}
     confirm = bool(args.get("confirm_authorized", False))
     chat_id, user_id = _hook_identity(kw)
-    d = check_authorization(
-        cfg, chat_id=chat_id, user_id=user_id, target=target, confirm=confirm
-    )
+    d = check_authorization(cfg, chat_id=chat_id, user_id=user_id, target=target, confirm=confirm)
     audit(
-        cfg, action="tool_check", tool="strix_scan", chat_id=chat_id, user_id=user_id,
-        target=target, decision="allowed" if d.allowed else d.reason,
+        cfg,
+        action="tool_check",
+        tool="strix_scan",
+        chat_id=chat_id,
+        user_id=user_id,
+        target=target,
+        decision="allowed" if d.allowed else d.reason,
     )
     if d.allowed:
         return None

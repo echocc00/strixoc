@@ -40,8 +40,7 @@ class FakeGateway:
 
 def test_renderers():
     assert "waiting" in broadcast.phase_text("sc-1", "waiting")
-    v = broadcast.vuln_text("sc-1", {"id": "vuln-0001", "severity": "critical",
-                                     "title": "SQLi"})
+    v = broadcast.vuln_text("sc-1", {"id": "vuln-0001", "severity": "critical", "title": "SQLi"})
     assert "critical" in v and "SQLi" in v and "🔴" in v
     f = broadcast.finished_text("sc-1", {"vuln_count": 2, "by_severity": {"critical": 1}})
     assert "finished" in f and "critical=1" in f
@@ -63,8 +62,7 @@ def test_no_channel_no_send():
     try:
         fn("sc-1", "phase", "spin")
         fn("sc-1", "vuln", {"id": "v", "severity": "high", "title": "X"})
-        fn("sc-1", "finished", {"status": "finished", "vuln_count": 1,
-                                "by_severity": {"high": 1}})
+        fn("sc-1", "finished", {"status": "finished", "vuln_count": 1, "by_severity": {"high": 1}})
         assert received and received[0].startswith("🔒")
         assert "🟠" in received[1]
         assert "✅" in received[2]
@@ -89,8 +87,9 @@ async def test_dispatch_hook_captures_route():
     adapter = FakeAdapter()
     gw = FakeGateway(adapter)
     broadcast.set_channel(None)
-    ret = broadcast.pre_gateway_dispatch_hook(event=FakeEvent("feishu", "chat-1", "/pentest x"),
-                                              gateway=gw)
+    ret = broadcast.pre_gateway_dispatch_hook(
+        event=FakeEvent("feishu", "chat-1", "/pentest x"), gateway=gw
+    )
     assert ret is None  # never blocks dispatch
     assert broadcast.get_channel() is not None
     broadcast.get_channel()("hello")
@@ -101,7 +100,7 @@ async def test_dispatch_hook_captures_route():
 
 def test_dispatch_hook_ignores_other_platforms():
     class NoAdapterGateway:
-        adapters = {}
+        adapters = {}  # noqa: RUF012 - read-only stub
 
     ret = broadcast.pre_gateway_dispatch_hook(
         event=FakeEvent("slack", "c2"), gateway=NoAdapterGateway()
@@ -113,6 +112,7 @@ def test_dispatch_hook_missing_args():
     assert broadcast.pre_gateway_dispatch_hook(event=None, gateway=None) is None
     assert broadcast.pre_gateway_dispatch_hook() is None
 
+
 async def test_dispatch_hook_latches_source_event_layout():
     """v0.19.1 MessageEvent carries identity on event.source only (P0-2
     golden-path fix: 'missing platform/chat — skip' broke Feishu broadcast)."""
@@ -120,7 +120,8 @@ async def test_dispatch_hook_latches_source_event_layout():
     gw = FakeGateway(adapter)
     broadcast.set_channel(None)
     ret = broadcast.pre_gateway_dispatch_hook(
-        event=FakeSourceEvent("feishu", "oc_abc123", "/pentest x"), gateway=gw)
+        event=FakeSourceEvent("feishu", "oc_abc123", "/pentest x"), gateway=gw
+    )
     assert ret is None
     assert broadcast.get_channel() is not None
     broadcast.get_channel()("hello")
@@ -132,8 +133,11 @@ async def test_dispatch_hook_latches_source_event_layout():
 def test_dispatch_hook_skips_without_source_identity():
     adapter = FakeAdapter()
     gw = FakeGateway(adapter)
-    broadcast.set_channel(reveal := lambda t: None) if False else None
+    if False:
+        broadcast.set_channel(lambda t: None)  # pragma: no cover
+
     class Bare:
         text = "x"
+
     ret = broadcast.pre_gateway_dispatch_hook(event=Bare(), gateway=gw)
     assert ret is None and broadcast.get_channel() is None

@@ -1,6 +1,5 @@
 """Plugin-side MCP gateway bridge tests (hermes gateway-run MCP startup gap)."""
 
-import importlib
 import sys
 import types
 

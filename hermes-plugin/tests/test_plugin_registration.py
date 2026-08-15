@@ -8,7 +8,6 @@ module from plugin/__init__.py with submodule_search_locations set.
 import importlib.util
 import json
 import sys
-import types
 from pathlib import Path
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent / "plugin"
@@ -20,7 +19,8 @@ def load_plugin_like_hermes():
     if ns_name in sys.modules:
         del sys.modules[ns_name]
     spec = importlib.util.spec_from_file_location(
-        ns_name, PLUGIN_DIR / "__init__.py",
+        ns_name,
+        PLUGIN_DIR / "__init__.py",
         submodule_search_locations=[str(PLUGIN_DIR)],
     )
     mod = importlib.util.module_from_spec(spec)
@@ -51,7 +51,11 @@ def test_imports_work_without_repo_path_breadcrumbs():
     )
     p = subprocess.run(
         [sys.executable, "-c", code],
-        cwd=str(repo), env=env, capture_output=True, text=True, timeout=60,
+        cwd=str(repo),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     assert p.returncode == 0, p.stderr[-2000:]
     assert "IMPORTS_OK" in p.stdout
@@ -84,8 +88,12 @@ def test_register_declares_surface():
 
     names = [t["name"] for t in ctx.tools]
     assert names == [
-        "strix_scan", "strix_status", "strix_report",
-        "strix_cancel", "strix_history", "strix_health",
+        "strix_scan",
+        "strix_status",
+        "strix_report",
+        "strix_cancel",
+        "strix_history",
+        "strix_health",
     ]
     for t in ctx.tools:
         assert t["toolset"] == "strix"
@@ -137,13 +145,16 @@ def test_handlers_invoke_as_tools_do(monkeypatch):
     under that exact call shape (validated via asyncio.run on the handler)."""
     import asyncio
 
-    from plugin import strix_tools, strix_tools as _st
-
-    mgr = type("M", (), {
-        "get": lambda self, sid: None,
-        "list_scans": lambda self, limit=10: [],
-    })()
     from plugin import strix_tools as _st
+
+    _mgr = type(
+        "M",
+        (),
+        {
+            "get": lambda self, sid: None,
+            "list_scans": lambda self, limit=10: [],
+        },
+    )()
 
     result = asyncio.run(_st._status({"scan_id": "x"}, session="s"))
     data = json.loads(result)

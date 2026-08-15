@@ -34,7 +34,9 @@ def test_file_overrides_defaults(tmp_path):
 
 def test_json_config_accepted(tmp_path):
     f = tmp_path / "strix.json"
-    f.write_text('{"allowed_targets": ["staging.app"], "worker_python": "py3.12"}', encoding="utf-8")
+    f.write_text(
+        '{"allowed_targets": ["staging.app"], "worker_python": "py3.12"}', encoding="utf-8"
+    )
     c = cfgmod.load_config(path=f)
     assert c["allowed_targets"] == ["staging.app"]
     assert c["worker_python"] == "py3.12"
@@ -122,13 +124,16 @@ def test_hermes_config_token_quoted_and_missing(tmp_path, monkeypatch):
     assert cfgmod.hermes_config_value("api_key") == "sk-xyz"
     assert cfgmod.hermes_config_value("base_url") is None
 
+
 def test_hermes_config_value_pinned_path(monkeypatch, tmp_path):
     """hermes_config_path pins @hermes: token resolution regardless of the
     active profile/home env dance (P0-2: 401 ended the Feishu scan)."""
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "somewhere-none"))
     pin = tmp_path / "base" / "config.yaml"
     pin.parent.mkdir(parents=True)
-    pin.write_text("api_key: sk-pinned-1\nbase_url: https://api.minimaxi.com/v1\n", encoding="utf-8")
+    pin.write_text(
+        "api_key: sk-pinned-1\nbase_url: https://api.minimaxi.com/v1\n", encoding="utf-8"
+    )
     assert cfgmod.hermes_config_value("api_key", pin) == "sk-pinned-1"
     assert cfgmod.hermes_config_value("base_url", pin) == "https://api.minimaxi.com/v1"
 

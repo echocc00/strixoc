@@ -10,7 +10,6 @@ in strix_runs/<scan_id>/ and our reader picks them up.
 import asyncio
 import json
 import sys
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -18,15 +17,21 @@ import pytest
 strix = pytest.importorskip("strix", reason="strix not installed (requires py>=3.12)")
 # fresh import of the worker runtime so it picks up our stubbing below
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "plugin"))
-import worker_runtime  # noqa: E402
-from plugin.backends import read_run_artifacts  # noqa: E402
+import worker_runtime
+
+from plugin.backends import read_run_artifacts
 
 
 @pytest.fixture()
 def end_to_end_request(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    cfg = build_scan_config_local("http://localhost:3000", "quick", "sc-e2e", "sc-e2e",
-                                  user_instructions="authorized local test")
+    cfg = build_scan_config_local(
+        "http://localhost:3000",
+        "quick",
+        "sc-e2e",
+        "sc-e2e",
+        user_instructions="authorized local test",
+    )
     return {"scan_id": "sc-e2e", "scan_config": cfg, "image": "", "max_budget_usd": 5.0}
 
 
@@ -92,16 +97,14 @@ def test_mvp_artifact_loop(end_to_end_request, tmp_path, monkeypatch, capsys):
     emitted = []
 
     async def run():
-        return await worker_runtime.execute(
-            req, emit=emitted.append, cancel_event=asyncio.Event()
-        )
+        return await worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event())
 
     rc = asyncio.run(run())
     assert rc["ok"] is True
 
     kinds = [ev["type"] for ev in emitted]
     assert "phase" in kinds and "finished" in kinds
-    finish = [ev for ev in emitted if ev["type"] == "finished"][0]
+    finish = next(ev for ev in emitted if ev["type"] == "finished")
 
     run_dir = Path(finish["run_dir"])
     assert run_dir == tmp_path / "strix_runs" / req["scan_id"]
@@ -158,9 +161,7 @@ def test_worker_vuln_callback_realtime(tmp_path, monkeypatch):
     cfg = build_scan_config_local("http://localhost:1", "quick", "sc-x", "sc-x")
     req = {"scan_id": "sc-x", "scan_config": cfg, "image": "whatever", "max_budget_usd": 1.0}
     emitted = []
-    rc = asyncio.run(
-        worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event())
-    )
+    rc = asyncio.run(worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event()))
     assert rc["ok"]
     vulns = [ev for ev in emitted if ev["type"] == "vuln"]
     assert len(vulns) == 1
@@ -182,7 +183,8 @@ def test_worker_synthesizes_terminal_report_when_finish_scan_never_called(tmp_pa
         from strix.report.state import get_global_report_state
 
         get_global_report_state().add_vulnerability_report(
-            title="AuthZ gap", severity="high", description="BFLA", cwe="CWE-862")
+            title="AuthZ gap", severity="high", description="BFLA", cwe="CWE-862"
+        )
         # NOTE: no update_scan_final_fields — simulates the text-turn ending
         return None
 
@@ -190,9 +192,7 @@ def test_worker_synthesizes_terminal_report_when_finish_scan_never_called(tmp_pa
     cfg = build_scan_config_local("http://localhost:1", "quick", "sc-synth", "sc-synth")
     req = {"scan_id": "sc-synth", "scan_config": cfg, "image": "", "max_budget_usd": 1.0}
     emitted = []
-    rc = asyncio.run(
-        worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event())
-    )
+    rc = asyncio.run(worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event()))
     assert rc["ok"]
     run_dir = Path(tmp_path) / "strix_runs" / "sc-synth"
     md = run_dir / "penetration_test_report.md"
@@ -200,7 +200,7 @@ def test_worker_synthesizes_terminal_report_when_finish_scan_never_called(tmp_pa
     assert "high" in md.read_text(encoding="utf-8").lower()
     run_json = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
     assert run_json["status"] == "completed"
-    finish = [ev for ev in emitted if ev["type"] == "finished"][0]
+    finish = next(ev for ev in emitted if ev["type"] == "finished")
     assert finish["vuln_count"] == 1 and finish["by_severity"] == {"high": 1}
 
 
@@ -221,8 +221,8 @@ def test_worker_resolves_image_from_settings_when_request_empty(tmp_path, monkey
         from strix.report.state import get_global_report_state
 
         get_global_report_state().update_scan_final_fields(
-            executive_summary="e", methodology="m", technical_analysis="t",
-            recommendations="r")
+            executive_summary="e", methodology="m", technical_analysis="t", recommendations="r"
+        )
         return None
 
     class FakeSettings:
@@ -234,8 +234,6 @@ def test_worker_resolves_image_from_settings_when_request_empty(tmp_path, monkey
     cfg = build_scan_config_local("http://localhost:1", "quick", "sc-img", "sc-img")
     req = {"scan_id": "sc-img", "scan_config": cfg, "image": "", "max_budget_usd": 1.0}
     emitted = []
-    rc = asyncio.run(
-        worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event())
-    )
+    rc = asyncio.run(worker_runtime.execute(req, emit=emitted.append, cancel_event=asyncio.Event()))
     assert rc["ok"]
     assert captured["image"] == "ghcr.io/usestrix/strix-sandbox:1.3.0"

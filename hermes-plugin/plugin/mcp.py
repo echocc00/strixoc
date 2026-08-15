@@ -31,7 +31,7 @@ def ensure_gateway_mcp_startup() -> None:
             return
         _started = True
     try:
-        from hermes_cli import mcp_startup  # type: ignore[import-not-found]
+        from hermes_cli import mcp_startup
 
         mcp_startup.start_background_mcp_discovery(
             logger=logger,
@@ -39,7 +39,7 @@ def ensure_gateway_mcp_startup() -> None:
         )
         try:
             mcp_startup.wait_for_mcp_discovery(timeout=5.0, single_query=False)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.debug("MCP discovery wait skipped (server may still be up)")
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("MCP discovery via plugin bridge skipped", exc_info=True)

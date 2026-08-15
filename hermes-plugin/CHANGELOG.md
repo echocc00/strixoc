@@ -4,6 +4,32 @@ All notable changes to the `hermes-plugin` (Strix × Hermes integration) are
 documented here.  Plugin version is independent of the vendored strix-agent
 version (upstream tracks its own releases).
 
+## [0.3.0] - 2026-08-16
+
+### Quality gates（DEV_PLAN 0.3.0 全项落地）
+
+- **本地发布门禁 `scripts/release_gate.py`**：hermes-agent 是本地私有框架，
+  CI 永远装不上、金标套件在 CI 必然 skip。门禁在当前 venv 跑全套件并
+  **断言 0 skip**，强制发布在「strix + hermes 双依赖」环境执行（发布前
+  必跑，见 README / DEV_PLAN §5）。
+- **CI 三 job**：新增 lint job（ruff check + ruff format --check + mypy）；
+  py3.12 job 加覆盖率（`--cov-fail-under=75`，实测 85.2%）；py3.11 job
+  改 `-rs` 让所有 skip 在日志可见 + step summary 提示发布走本地门禁。
+- **ruff / mypy 基线**：pyproject.toml 新增 `[tool.ruff]`（py311 target，
+  根 repo 规则子集）、`[tool.mypy]`（宽松基线，每版本收紧）、
+  `[tool.coverage]`。全量格式化 + 修复全部 92 处 lint 发现（含 3 个真实
+  类型注解 bug：`_all_listeners` 循环变量复用、`from_dict` Optional splat、
+  worker 子进程 Optional 流）。
+- **worker 心跳**：worker 每 30s emit `heartbeat`（首拍在启动后 30s）；
+  ScanManager 记录 `last_heartbeat`，`strix_status` 输出
+  `worker_alive` / `heartbeat_age_s`（90s 超时 = 3 个周期；启动 90s 宽限
+  覆盖 spawn + strix import；in-process 后端恒 alive）。僵尸 worker 从
+  "扫完 reconcile 才发现" 变为 "status 实时可见"。
+
+### 基线数据
+
+100 tests（+4 心跳），0 skip；coverage 85.19%；ruff/mypy 全绿。
+
 ## [0.2.1] - 2026-08-16
 
 ### Fixes

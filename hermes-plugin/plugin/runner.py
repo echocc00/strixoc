@@ -14,10 +14,12 @@ import datetime as _dt
 import json
 import os
 import threading
+import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .authz import AuthDecision, audit, check_authorization
 from .backends import (
@@ -58,13 +60,15 @@ class ScanRecord:
     vuln_count: int = 0
     report_head: str = ""
     by_severity: dict[str, int] = field(default_factory=dict)
+    last_heartbeat: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "ScanRecord":
-        kwargs = {k: d.get(k) for k in cls.__dataclass_fields__}
+    def from_dict(cls, d: dict[str, Any]) -> ScanRecord:
+        fields = cls.__dataclass_fields__
+        kwargs = {k: v for k, v in d.items() if k in fields}
         return cls(**kwargs)
 
 
@@ -78,12 +82,17 @@ class ScanManager:
         from . import config as cfgmod
 
         self._cfg = cfgmod.load_config(path="auto") if cfg is None else cfg
-        self._db_path = Path(scans_db or os.path.expanduser(str(
-            self._cfg.get("scans_db") or "~/.hermes/logs/strix-scans.json")))
+        self._db_path = Path(
+            scans_db
+            or os.path.expanduser(
+                str(self._cfg.get("scans_db") or "~/.hermes/logs/strix-scans.json")
+            )
+        )
         wpy = str(self._cfg.get("worker_python") or "")
         self._backend = backend or (
             WorkerBackend(worker_python=wpy, runs_cwd=str(self._cfg.get("runs_cwd") or ""))
-            if wpy else _auto_backend(self._cfg)
+            if wpy
+            else _auto_backend(self._cfg)
         )
         self._records: dict[str, ScanRecord] = {}
         self._tasks: dict[str, asyncio.Task] = {}
@@ -132,10 +141,12 @@ class ScanManager:
                     terminal = json.loads(rj.read_text(encoding="utf-8")).get("status")
                 except (OSError, json.JSONDecodeError):
                     terminal = None
-            fields = dict(run_dir=str(run_dir),
-                          vuln_count=summary["vuln_count"],
-                          by_severity=summary["by_severity"],
-                          report_head=summary["report_head"])
+            fields = dict(
+                run_dir=str(run_dir),
+                vuln_count=summary["vuln_count"],
+                by_severity=summary["by_severity"],
+                report_head=summary["report_head"],
+            )
             if terminal in ("completed", "stopped", "failed", "interrupted"):
                 if terminal == "completed" and rec.status != "finished":
                     fields["status"] = "finished"
@@ -154,8 +165,10 @@ class ScanManager:
         except OSError:
             return
         with self._lock:
-            rows = [r.to_dict() for r in sorted(
-                self._records.values(), key=lambda r: r.created_at, reverse=True)]
+            rows = [
+                r.to_dict()
+                for r in sorted(self._records.values(), key=lambda r: r.created_at, reverse=True)
+            ]
         tmp = self._db_path.with_suffix(".tmp")
         try:
             tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -171,8 +184,14 @@ class ScanManager:
             self._cfg, chat_id=chat_id, user_id=user_id, target=target, confirm=confirm
         )
         if not decision.allowed:
-            audit(self._cfg, action="authz_denied", chat_id=chat_id, user_id=user_id,
-                  target=target, decision=decision.reason)
+            audit(
+                self._cfg,
+                action="authz_denied",
+                chat_id=chat_id,
+                user_id=user_id,
+                target=target,
+                decision=decision.reason,
+            )
             raise AuthError(decision, f"not authorized: {decision.reason}")
 
     async def start(
@@ -198,20 +217,40 @@ class ScanManager:
             self._cfg, chat_id=chat_id, user_id=user_id, target=target, confirm=confirm
         )
         if not decision.allowed:
-            audit(self._cfg, action="scan_start_denied", chat_id=chat_id, user_id=user_id,
-                  target=target, scan_mode=scan_mode, budget=budget,
-                  decision=decision.reason)
+            audit(
+                self._cfg,
+                action="scan_start_denied",
+                chat_id=chat_id,
+                user_id=user_id,
+                target=target,
+                scan_mode=scan_mode,
+                budget=budget,
+                decision=decision.reason,
+            )
             raise AuthError(decision, f"not authorized: {decision.reason}")
-        audit(self._cfg, action="scan_start", chat_id=chat_id, user_id=user_id,
-              target=target, scan_mode=scan_mode, budget=budget,
-              decision="allowed")
+        audit(
+            self._cfg,
+            action="scan_start",
+            chat_id=chat_id,
+            user_id=user_id,
+            target=target,
+            scan_mode=scan_mode,
+            budget=budget,
+            decision="allowed",
+        )
 
         scan_id = f"strix-{uuid.uuid4().hex[:8]}"
-        now = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        now = _dt.datetime.now(_dt.UTC).isoformat()
         record = ScanRecord(
-            scan_id=scan_id, status="running", target=target, scan_mode=scan_mode,
-            budget=budget, chat_id=chat_id, user_id=user_id,
-            created_at=now, updated_at=now,
+            scan_id=scan_id,
+            status="running",
+            target=target,
+            scan_mode=scan_mode,
+            budget=budget,
+            chat_id=chat_id,
+            user_id=user_id,
+            created_at=now,
+            updated_at=now,
         )
         self._records[scan_id] = record
         self._persist()
@@ -219,17 +258,18 @@ class ScanManager:
         request = {
             "scan_id": scan_id,
             "scan_config": build_scan_config(
-                target=target, scan_mode=scan_mode, user_instructions=user_instructions,
-                run_name=scan_id, scan_id=scan_id,
+                target=target,
+                scan_mode=scan_mode,
+                user_instructions=user_instructions,
+                run_name=scan_id,
+                scan_id=scan_id,
             ),
             "max_budget_usd": budget,
             "extra_env": _resolve_worker_env(self._cfg),
         }
         cancel_event = asyncio.Event()
         self._cancel_events[scan_id] = cancel_event
-        self._tasks[scan_id] = asyncio.ensure_future(
-            self._run(request, record, cancel_event)
-        )
+        self._tasks[scan_id] = asyncio.ensure_future(self._run(request, record, cancel_event))
         return record
 
     async def _run(self, request: dict, record: ScanRecord, cancel_event: asyncio.Event) -> None:
@@ -238,20 +278,23 @@ class ScanManager:
         def forward(kind: str, payload: Any) -> None:
             if kind == "phase" and isinstance(payload, str):
                 self._bump(record, phase=payload)
+            elif kind == "heartbeat" and isinstance(payload, dict):
+                # persist as epoch seconds (JSON-safe, no tz parsing later)
+                self._bump(record, last_heartbeat=str(payload.get("ts", "")))
             elif kind == "vuln" and isinstance(payload, dict):
                 sev = str(payload.get("severity", "info")).lower()
                 sev_counts = dict(record.by_severity)
                 sev_counts[sev] = sev_counts.get(sev, 0) + 1
                 self._bump(record, by_severity=sev_counts, vuln_count=record.vuln_count + 1)
-            for fn in list(self._listeners.get(scan_id, [])):
+            for sub in list(self._listeners.get(scan_id, [])):
                 try:
-                    fn(kind, payload)
-                except Exception:  # noqa: BLE001
+                    sub(kind, payload)
+                except Exception:
                     pass
-            for fn in list(self._all_listeners):
+            for allfn in list(self._all_listeners):
                 try:
-                    fn(scan_id, kind, payload)
-                except Exception:  # noqa: BLE001
+                    allfn(scan_id, kind, payload)
+                except Exception:
                     pass
 
         try:
@@ -261,10 +304,15 @@ class ScanManager:
             raise
         except BackendConfigError as exc:
             self._bump(record, status="failed", error=f"config: {exc}")
-            audit(self._cfg, action="scan_failed", scan_id=scan_id, target=record.target,
-                  error=str(exc))
+            audit(
+                self._cfg,
+                action="scan_failed",
+                scan_id=scan_id,
+                target=record.target,
+                error=str(exc),
+            )
             return
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self._bump(record, status="failed", error=f"{type(exc).__name__}: {exc}")
             return
         else:
@@ -276,42 +324,85 @@ class ScanManager:
                     # (vulnerabilities persist live) — keep the pointer so
                     # strix_report can read them.
                     self._bump(record, run_dir=outcome.run_dir)
-                self._bump(record, status=record.status if record.status == "cancelled"
-                           else "failed", error=outcome.error or "unknown failure")
-            audit(self._cfg, action="scan_end", scan_id=scan_id, target=record.target,
-                  status=record.status, run_dir=record.run_dir)
+                self._bump(
+                    record,
+                    status=record.status if record.status == "cancelled" else "failed",
+                    error=outcome.error or "unknown failure",
+                )
+            audit(
+                self._cfg,
+                action="scan_end",
+                scan_id=scan_id,
+                target=record.target,
+                status=record.status,
+                run_dir=record.run_dir,
+            )
         finally:
             self._cancel_events.pop(scan_id, None)
             self._tasks.pop(scan_id, None)
-            done_payload = {"scan_id": scan_id, "status": record.status,
-                            "error": record.error, "by_severity": record.by_severity,
-                            "vuln_count": record.vuln_count}
-            for fn in list(self._listeners.pop(scan_id, [])):
+            done_payload = {
+                "scan_id": scan_id,
+                "status": record.status,
+                "error": record.error,
+                "by_severity": record.by_severity,
+                "vuln_count": record.vuln_count,
+            }
+            for sub in list(self._listeners.pop(scan_id, [])):
                 try:
-                    fn("finished", done_payload)
-                except Exception:  # noqa: BLE001
+                    sub("finished", done_payload)
+                except Exception:
                     pass
-            for fn in list(self._all_listeners):
+            for allfn in list(self._all_listeners):
                 try:
-                    fn(scan_id, "finished", done_payload)
-                except Exception:  # noqa: BLE001
+                    allfn(scan_id, "finished", done_payload)
+                except Exception:
                     pass
 
     def _bump(self, record: ScanRecord, **fields: Any) -> None:
         for k, v in fields.items():
             setattr(record, k, v)
-        record.updated_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        record.updated_at = _dt.datetime.now(_dt.UTC).isoformat()
         self._persist()
 
     # -- accessors -----------------------------------------------------------
 
+    HEARTBEAT_TIMEOUT_S = 90.0  # 3x the worker's 30s interval
+
+    def _liveness(self, rec: ScanRecord) -> dict[str, Any]:
+        """Worker liveness for a running scan (heartbeat-based, worker backend
+        only).  Grace window covers spawn + strix import before the first
+        heartbeat."""
+        if rec.status != "running":
+            return {"worker_alive": None, "heartbeat_age_s": None}
+        if getattr(self._backend, "name", "") == "inprocess":
+            return {"worker_alive": True, "heartbeat_age_s": None}
+        age: float | None = None
+        if rec.last_heartbeat:
+            try:
+                age = max(0.0, time.time() - float(rec.last_heartbeat))
+            except ValueError:
+                age = None
+        if age is not None:
+            return {
+                "worker_alive": age <= self.HEARTBEAT_TIMEOUT_S,
+                "heartbeat_age_s": round(age, 1),
+            }
+        try:
+            started = _dt.datetime.fromisoformat(rec.created_at).timestamp()
+        except ValueError:
+            started = time.time()
+        in_grace = (time.time() - started) < self.HEARTBEAT_TIMEOUT_S
+        return {"worker_alive": in_grace, "heartbeat_age_s": None}
+
     def get(self, scan_id: str) -> dict[str, Any] | None:
         rec = self._records.get(scan_id)
-        return rec.to_dict() if rec else None
+        if not rec:
+            return None
+        return {**rec.to_dict(), **self._liveness(rec)}
 
     def list_scans(self, limit: int = 20) -> list[dict[str, Any]]:
         rows = sorted(self._records.values(), key=lambda r: r.created_at, reverse=True)
-        return [r.to_dict() for r in rows[:limit]]
+        return [{**r.to_dict(), **self._liveness(r)} for r in rows[:limit]]
 
     def history(self, limit: int = 10) -> list[dict[str, Any]]:
         return self.list_scans(limit=limit)
@@ -343,7 +434,8 @@ class ScanManager:
 
     def health(self) -> dict[str, Any]:
         worker_python = os.environ.get("STRIX_WORKER_PYTHON") or str(
-            self._cfg.get("worker_python") or "")
+            self._cfg.get("worker_python") or ""
+        )
         backend_name = getattr(self._backend, "name", type(self._backend).__name__)
         return {
             "backend": backend_name,

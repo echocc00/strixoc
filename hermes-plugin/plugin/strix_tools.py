@@ -29,20 +29,26 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "name": "strix_scan",
         "description": "Start an authorized Strix autonomous pentest scan. "
-                       "Requires the target to be allowlisted in ~/.hermes/strix.yaml "
-                       "and confirm_authorized=true. Returns a scan_id immediately; "
-                       "the scan runs in the background.",
+        "Requires the target to be allowlisted in ~/.hermes/strix.yaml "
+        "and confirm_authorized=true. Returns a scan_id immediately; "
+        "the scan runs in the background.",
         "schema": {
             "type": "object",
             "properties": {
-                "target": {"type": "string",
-                           "description": "URL / domain / IP to scan (e.g. http://localhost:3000)"},
+                "target": {
+                    "type": "string",
+                    "description": "URL / domain / IP to scan (e.g. http://localhost:3000)",
+                },
                 "scan_mode": _SCAN_MODE_ENUM,
                 "max_budget_usd": {"type": "number", "description": "LLM budget cap in USD"},
-                "user_instructions": {"type": "string",
-                                      "description": "credentials, scope rules, focus areas"},
-                "confirm_authorized": {"type": "boolean",
-                                       "description": "MUST be true — operator authorization"},
+                "user_instructions": {
+                    "type": "string",
+                    "description": "credentials, scope rules, focus areas",
+                },
+                "confirm_authorized": {
+                    "type": "boolean",
+                    "description": "MUST be true — operator authorization",
+                },
             },
             "required": ["target", "confirm_authorized"],
         },
@@ -62,13 +68,16 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "name": "strix_report",
         "description": "Read a finished scan's artifacts: summary (default), full "
-                       "penetration_test_report.md, vulnerabilities.json, or findings.sarif.",
+        "penetration_test_report.md, vulnerabilities.json, or findings.sarif.",
         "schema": {
             "type": "object",
             "properties": {
                 "scan_id": {"type": "string"},
-                "section": {"type": "string", "enum": ["summary", "report_md",
-                                                       "vulns_json", "sarif"], "default": "summary"},
+                "section": {
+                    "type": "string",
+                    "enum": ["summary", "report_md", "vulns_json", "sarif"],
+                    "default": "summary",
+                },
                 "max_chars": {"type": "number", "default": 8000},
             },
             "required": ["scan_id"],
@@ -129,13 +138,19 @@ async def _scan(args: dict, **kw: Any) -> str:
     except AuthError as exc:
         return _err(
             f"scan blocked: {exc.decision.reason}",
-            target=target, decision=exc.decision.reason, fix=_authz_fix(exc.decision.reason),
+            target=target,
+            decision=exc.decision.reason,
+            fix=_authz_fix(exc.decision.reason),
         )
     return _json(
-        ok=True, scan_id=rec.scan_id, target=rec.target, scan_mode=rec.scan_mode,
-        budget=rec.budget, status=rec.status,
+        ok=True,
+        scan_id=rec.scan_id,
+        target=rec.target,
+        scan_mode=rec.scan_mode,
+        budget=rec.budget,
+        status=rec.status,
         message="scan started — poll with strix_status until status=finished, "
-                "then read with strix_report",
+        "then read with strix_report",
     )
 
 
@@ -161,16 +176,27 @@ async def _status(args: dict, **kw: Any) -> str:
     rows = _pick(scan_id)
     if not rows:
         return _err("no matching scan", scan_id=scan_id)
-    return _json(ok=True, scans=[
-        {
-            "scan_id": r["scan_id"], "status": r["status"], "target": r["target"],
-            "scan_mode": r["scan_mode"], "phase": r.get("phase", ""),
-            "vuln_count": r.get("vuln_count", 0), "by_severity": r.get("by_severity", {}),
-            "error": r.get("error"), "run_dir": r.get("run_dir"),
-            "created_at": r.get("created_at"), "updated_at": r.get("updated_at"),
-        }
-        for r in rows
-    ])
+    return _json(
+        ok=True,
+        scans=[
+            {
+                "scan_id": r["scan_id"],
+                "status": r["status"],
+                "target": r["target"],
+                "scan_mode": r["scan_mode"],
+                "phase": r.get("phase", ""),
+                "vuln_count": r.get("vuln_count", 0),
+                "by_severity": r.get("by_severity", {}),
+                "error": r.get("error"),
+                "run_dir": r.get("run_dir"),
+                "worker_alive": r.get("worker_alive"),
+                "heartbeat_age_s": r.get("heartbeat_age_s"),
+                "created_at": r.get("created_at"),
+                "updated_at": r.get("updated_at"),
+            }
+            for r in rows
+        ],
+    )
 
 
 async def _report(args: dict, **kw: Any) -> str:
@@ -189,19 +215,34 @@ async def _report(args: dict, **kw: Any) -> str:
     try:
         if section == "report_md":
             text = (d / "penetration_test_report.md").read_text(encoding="utf-8", errors="replace")
-            return _json(ok=True, scan_id=scan_id, section="report_md",
-                         content=text[:max_chars], truncated=len(text) > max_chars)
+            return _json(
+                ok=True,
+                scan_id=scan_id,
+                section="report_md",
+                content=text[:max_chars],
+                truncated=len(text) > max_chars,
+            )
         if section == "vulns_json":
             data = (d / "vulnerabilities.json").read_text(encoding="utf-8", errors="replace")
-            return _json(ok=True, scan_id=scan_id, section="vulns_json",
-                         content=data[:max_chars], truncated=len(data) > max_chars)
+            return _json(
+                ok=True,
+                scan_id=scan_id,
+                section="vulns_json",
+                content=data[:max_chars],
+                truncated=len(data) > max_chars,
+            )
         if section == "sarif":
             sarif = d / "findings.sarif"
             if not sarif.exists():
                 return _err("no sarif artifact", scan_id=scan_id)
             data = sarif.read_text(encoding="utf-8", errors="replace")
-            return _json(ok=True, scan_id=scan_id, section="sarif",
-                         content=data[:max_chars], truncated=len(data) > max_chars)
+            return _json(
+                ok=True,
+                scan_id=scan_id,
+                section="sarif",
+                content=data[:max_chars],
+                truncated=len(data) > max_chars,
+            )
         summary = read_run_artifacts(d)
         return _json(ok=True, scan_id=scan_id, section="summary", **summary)
     except OSError as exc:
@@ -217,12 +258,21 @@ async def _cancel(args: dict, **kw: Any) -> str:
 async def _history(args: dict, **kw: Any) -> str:
     limit = int(args.get("limit") or 10)
     rows = get_manager().history(limit=limit)
-    return _json(ok=True, scans=[
-        {"scan_id": r["scan_id"], "status": r["status"], "target": r["target"],
-         "scan_mode": r["scan_mode"], "vuln_count": r.get("vuln_count", 0),
-         "by_severity": r.get("by_severity", {}), "created_at": r.get("created_at")}
-        for r in rows
-    ])
+    return _json(
+        ok=True,
+        scans=[
+            {
+                "scan_id": r["scan_id"],
+                "status": r["status"],
+                "target": r["target"],
+                "scan_mode": r["scan_mode"],
+                "vuln_count": r.get("vuln_count", 0),
+                "by_severity": r.get("by_severity", {}),
+                "created_at": r.get("created_at"),
+            }
+            for r in rows
+        ],
+    )
 
 
 async def _health(args: dict, **kw: Any) -> str:
@@ -230,8 +280,12 @@ async def _health(args: dict, **kw: Any) -> str:
 
 
 HANDLERS = {
-    "_scan": _scan, "_status": _status, "_report": _report,
-    "_cancel": _cancel, "_history": _history, "_health": _health,
+    "_scan": _scan,
+    "_status": _status,
+    "_report": _report,
+    "_cancel": _cancel,
+    "_history": _history,
+    "_health": _health,
 }
 
 

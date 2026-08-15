@@ -10,8 +10,8 @@ on:
       - "hermes-plugin/**"
 
 jobs:
-  test-py312-strix:
-    name: py3.12 + strix (real artifact suites)
+  lint:
+    name: lint (ruff + mypy)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,13 +22,38 @@ jobs:
         working-directory: hermes-plugin
         run: |
           python -m pip install --quiet --disable-pip-version-check \
-            "strix-agent==1.5.3" pytest pytest-asyncio
+            "ruff>=0.11" "mypy>=1.16" types-PyYAML
+      - name: Ruff check
+        working-directory: hermes-plugin
+        run: python -m ruff check plugin/ scripts/ tests/
+      - name: Ruff format check
+        working-directory: hermes-plugin
+        run: python -m ruff format --check plugin/ scripts/ tests/
+      - name: Mypy
+        working-directory: hermes-plugin
+        run: python -m mypy
+
+  test-py312-strix:
+    name: py3.12 + strix (real artifact suites + coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        working-directory: hermes-plugin
+        run: |
+          python -m pip install --quiet --disable-pip-version-check \
+            "strix-agent==1.5.3" pytest pytest-asyncio pytest-cov
       - name: Run tests
         working-directory: hermes-plugin
-        run: python -m pytest tests/ -q
+        run: |
+          python -m pytest tests/ -q -rs --cov=plugin --cov-report=term \
+            --cov-fail-under=75
 
   test-py311:
-    name: py3.11 (hermes-side only)
+    name: py3.11 (hermes-side only, skips listed)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +64,18 @@ jobs:
         working-directory: hermes-plugin
         run: |
           python -m pip install --quiet --disable-pip-version-check pytest pytest-asyncio
-      - name: Run tests (strix-optional suites auto-skip without strix)
+      # hermes-agent is a private local framework (not on PyPI), so the golden
+      # hermes-loading suites skip here BY DESIGN.  -rs makes every skip
+      # visible in the log; the authoritative no-skip run is the local release
+      # gate (hermes-plugin/scripts/release_gate.py) before every tag.
+      - name: Run tests (skips listed)
         working-directory: hermes-plugin
-        run: python -m pytest tests/ -q
+        run: python -m pytest tests/ -q -rs
+      - name: Skip census
+        working-directory: hermes-plugin
+        if: always()
+        run: |
+          echo "hermes golden suites must be covered by the LOCAL release gate:" \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo "run scripts/release_gate.py in a venv with strix+hermes before tagging" \
+            >> "$GITHUB_STEP_SUMMARY"

@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -83,16 +84,19 @@ def _on_scan_event(scan_id: str, kind: str, payload: Any) -> None:
             text = vuln_text(scan_id, payload)
         elif kind == "finished" and isinstance(payload, dict):
             status = payload.get("status")
-            text = (finished_text(scan_id, payload) if status == "finished"
-                    else failed_text(scan_id, str(payload.get("error") or "unknown")))
+            text = (
+                finished_text(scan_id, payload)
+                if status == "finished"
+                else failed_text(scan_id, str(payload.get("error") or "unknown"))
+            )
         else:
             return
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("broadcast render failed")
         return
     try:
         chan(text)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("broadcast send failed")
 
 
@@ -106,7 +110,7 @@ def ensure_subscription() -> None:
     try:
         runner.get_manager().subscribe_all(_on_scan_event)
         _installed_subscription = True
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("could not attach broadcast subscription")
 
 
@@ -132,14 +136,21 @@ def pre_gateway_dispatch_hook(
         platform = getattr(source, "platform", None) or getattr(event, "platform", None)
         chat_id = getattr(source, "chat_id", None) or getattr(event, "chat_id", None)
         if platform is None or chat_id is None:
-            logger.info("broadcast: dispatch hook missing platform/chat "
-                        "(platform=%r chat=%r source=%r) — skip",
-                        platform, chat_id, bool(source))
+            logger.info(
+                "broadcast: dispatch hook missing platform/chat "
+                "(platform=%r chat=%r source=%r) — skip",
+                platform,
+                chat_id,
+                bool(source),
+            )
             return None
         adapters = getattr(gateway, "adapters", None)
         if not adapters or platform not in adapters:
-            logger.info("broadcast: no adapter for platform %s (adapters=%s) — skip",
-                        platform, list(adapters or {}).__class__.__name__ if adapters else None)
+            logger.info(
+                "broadcast: no adapter for platform %s (adapters=%s) — skip",
+                platform,
+                list(adapters or {}).__class__.__name__ if adapters else None,
+            )
             return None
         adapter = adapters[platform]
         logger.info("broadcast: latching gateway chat -> platform=%s chat=%s", platform, chat_id)
@@ -148,15 +159,17 @@ def pre_gateway_dispatch_hook(
             try:
                 logger.info("broadcast: sending to %s: %.120s", chat_id, text.replace("\n", " "))
                 coro = adapter.send(chat_id, text)
+                # fire-and-forget by design: progress pushes must never
+                # block the gateway dispatch path; failures only log.
                 try:
                     asyncio.get_running_loop().create_task(coro)
                 except RuntimeError:
-                    asyncio.ensure_future(coro)
-            except Exception:  # noqa: BLE001
+                    asyncio.ensure_future(coro)  # noqa: RUF006
+            except Exception:
                 logger.exception("gateway broadcast send failed")
 
         set_channel(send)
         ensure_subscription()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("pre_gateway_dispatch hook failed")
     return None

@@ -1,6 +1,5 @@
 """Tools handlers + slash commands against a fake manager."""
 
-import asyncio
 import json
 
 import pytest
@@ -14,10 +13,18 @@ class FakeMgr:
 
     def __init__(self, record=None, start_ok=True, authz_reason=None):
         self.record = record or {
-            "scan_id": "strix-abc123", "status": "running", "target": "http://localhost:3000",
-            "scan_mode": "quick", "budget": 3.0, "created_at": "2026-08-13T00:00:00+00:00",
-            "updated_at": "2026-08-13T00:00:00+00:00", "phase": "", "vuln_count": 0,
-            "by_severity": {}, "error": None, "run_dir": None,
+            "scan_id": "strix-abc123",
+            "status": "running",
+            "target": "http://localhost:3000",
+            "scan_mode": "quick",
+            "budget": 3.0,
+            "created_at": "2026-08-13T00:00:00+00:00",
+            "updated_at": "2026-08-13T00:00:00+00:00",
+            "phase": "",
+            "vuln_count": 0,
+            "by_severity": {},
+            "error": None,
+            "run_dir": None,
         }
         self.start_ok = start_ok
         self.authz_reason = authz_reason
@@ -25,11 +32,10 @@ class FakeMgr:
 
     async def start(self, target, **kw):
         if not self.start_ok:
-            from plugin.runner import AuthError, ScanManager as _unused  # noqa: F401
             from plugin.authz import AuthDecision
+            from plugin.runner import AuthError
 
-            raise AuthError(AuthDecision(False, self.authz_reason or "confirm_required"),
-                            "blocked")
+            raise AuthError(AuthDecision(False, self.authz_reason or "confirm_required"), "blocked")
         self.started = {"target": target, **kw}
         rec = type("R", (), dict(self.record))()
         rec.scan_id = self.record["scan_id"]
@@ -40,8 +46,7 @@ class FakeMgr:
             from plugin.authz import AuthDecision
             from plugin.runner import AuthError
 
-            raise AuthError(AuthDecision(False, self.authz_reason or "confirm_required"),
-                            "blocked")
+            raise AuthError(AuthDecision(False, self.authz_reason or "confirm_required"), "blocked")
 
     def get(self, scan_id):
         return self.record if scan_id == self.record["scan_id"] else None
@@ -56,9 +61,14 @@ class FakeMgr:
         return scan_id == self.record["scan_id"]
 
     def health(self):
-        return {"backend": "fake", "running_scans": [self.record],
-                "worker_python_configured": True, "allowed_targets": ["localhost"],
-                "max_budget_default": 5.0, "max_budget_cap": 25.0}
+        return {
+            "backend": "fake",
+            "running_scans": [self.record],
+            "worker_python_configured": True,
+            "allowed_targets": ["localhost"],
+            "max_budget_default": 5.0,
+            "max_budget_cap": 25.0,
+        }
 
 
 @pytest.fixture(autouse=True)
@@ -71,10 +81,19 @@ def fake_manager(monkeypatch):
 
 # --- tools ----------------------------------------------------------------
 
+
 async def test_strix_scan_ok():
-    out = json.loads(await tools.HANDLERS["_scan"](
-        {"target": "http://localhost:3000", "confirm_authorized": True,
-         "scan_mode": "standard", "max_budget_usd": 3.0}, chat_id="cli"))
+    out = json.loads(
+        await tools.HANDLERS["_scan"](
+            {
+                "target": "http://localhost:3000",
+                "confirm_authorized": True,
+                "scan_mode": "standard",
+                "max_budget_usd": 3.0,
+            },
+            chat_id="cli",
+        )
+    )
     assert out["ok"] is True and out["scan_id"] == "strix-abc123"
     assert out["status"] == "running"
 
@@ -87,8 +106,11 @@ async def test_strix_scan_missing_target():
 async def test_strix_scan_authz_block(fake_manager):
     fake_manager.start_ok = False
     fake_manager.authz_reason = "confirm_required"
-    out = json.loads(await tools.HANDLERS["_scan"](
-        {"target": "http://evil.example.com", "confirm_authorized": True}))
+    out = json.loads(
+        await tools.HANDLERS["_scan"](
+            {"target": "http://evil.example.com", "confirm_authorized": True}
+        )
+    )
     assert out["ok"] is False
     assert out["decision"] == "confirm_required"
     assert "confirm_authorized" in out["fix"]
@@ -104,14 +126,18 @@ async def test_strix_report_summary_with_run_dir(tmp_path, fake_manager):
     run_dir.mkdir(parents=True)
     (run_dir / "penetration_test_report.md").write_text("# S\nbody", encoding="utf-8")
     (run_dir / "vulnerabilities.json").write_text(
-        json.dumps([{"id": "v1", "severity": "high"}]), encoding="utf-8")
+        json.dumps([{"id": "v1", "severity": "high"}]), encoding="utf-8"
+    )
     fake_manager.record = dict(fake_manager.record, status="finished", run_dir=str(run_dir))
     out = json.loads(await tools.HANDLERS["_report"]({"scan_id": "strix-abc123"}))
     assert out["ok"] is True
     assert out["report_exists"] is True and out["vuln_count"] == 1
     assert out["by_severity"] == {"high": 1}
-    raw = json.loads(await tools.HANDLERS["_report"](
-        {"scan_id": "strix-abc123", "section": "report_md", "max_chars": 50}))
+    raw = json.loads(
+        await tools.HANDLERS["_report"](
+            {"scan_id": "strix-abc123", "section": "report_md", "max_chars": 50}
+        )
+    )
     assert raw["ok"] is True and "body" in raw["content"]
 
 
@@ -137,8 +163,9 @@ async def test_strix_health():
 
 async def test_pentest_parse_and_start(fake_manager):
     mgr = fake_manager
-    text = await commands.handle_pentest("http://localhost:3000 --mode deep --budget 4 "
-                                         "--confirm-authorized")
+    text = await commands.handle_pentest(
+        "http://localhost:3000 --mode deep --budget 4 --confirm-authorized"
+    )
     assert "strix-abc123" in text and "🔒" in text
     assert mgr.started["target"] == "http://localhost:3000"
     assert mgr.started["scan_mode"] == "deep"

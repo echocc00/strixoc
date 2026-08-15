@@ -3,7 +3,6 @@ the REAL PluginManager, REAL PluginContext, and REAL tools registry — fully
 isolated in a temp HERMES_HOME (skipped when hermes-agent isn't installed in
 this venv)."""
 
-import asyncio
 import shutil
 from pathlib import Path
 
@@ -40,8 +39,14 @@ def real_hermes(tmp_path, monkeypatch):
 
 def test_real_manager_registers_tools_and_commands(real_hermes):
     mgr, registry = real_hermes
-    for name in ("strix_scan", "strix_status", "strix_report",
-                 "strix_cancel", "strix_history", "strix_health"):
+    for name in (
+        "strix_scan",
+        "strix_status",
+        "strix_report",
+        "strix_cancel",
+        "strix_history",
+        "strix_health",
+    ):
         assert name in mgr._plugin_tool_names, f"{name} not registered by plugin"
         assert registry.get_toolset_for_tool(name) == "strix"
         schema = registry.get_schema(name)

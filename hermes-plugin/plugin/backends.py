@@ -24,9 +24,10 @@ import shutil
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 EventSink = Callable[[str, Any], None]  # ("phase"|"vuln"|"event"|"log"|"finished", payload)
 
@@ -144,7 +145,9 @@ def read_run_artifacts(run_dir: Path | str) -> dict[str, Any]:
     run_json = d / "run.json"
     if run_json.exists():
         try:
-            out["status"] = str(json.loads(run_json.read_text(encoding="utf-8")).get("status", "unknown"))
+            out["status"] = str(
+                json.loads(run_json.read_text(encoding="utf-8")).get("status", "unknown")
+            )
         except (OSError, json.JSONDecodeError):
             pass
     return out
@@ -177,8 +180,8 @@ class InProcessBackend:
 
     async def start(self, request: dict, sink: EventSink, cancel_event) -> RunOutcome:
         emit = _safe_sink(sink)
-        from strix.report.state import ReportState, set_global_report_state  # type: ignore
-        from strix.core.runner import run_strix_scan  # type: ignore
+        from strix.core.runner import run_strix_scan
+        from strix.report.state import ReportState, set_global_report_state
 
         scan_id = request["scan_id"]
         state = ReportState(scan_id)
@@ -203,7 +206,7 @@ class InProcessBackend:
                 )
             )
             cancel_proxy = asyncio_wrap(cancel_event.wait())
-            done, pending = await asyncio_wait_first(scan_task, cancel_proxy)
+            done, _pending = await asyncio_wait_first(scan_task, cancel_proxy)
             if cancel_proxy in done:
                 scan_task.cancel()
                 with suppress_cancelled():
@@ -214,16 +217,19 @@ class InProcessBackend:
                 outcome = RunOutcome(ok=True, run_dir=str(state.get_run_dir()))
         except asyncio.CancelledError:
             outcome = RunOutcome(ok=False, error="cancelled")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             outcome = RunOutcome(ok=False, error=f"{type(exc).__name__}: {exc}")
         finally:
             with suppress_cancelled():
                 try:
                     state.cleanup()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     pass
         if outcome.ok:
-            emit("finished", {"run_dir": outcome.run_dir, **read_run_artifacts(outcome.run_dir or "")})
+            emit(
+                "finished",
+                {"run_dir": outcome.run_dir, **read_run_artifacts(outcome.run_dir or "")},
+            )
         return outcome
 
 
@@ -311,7 +317,9 @@ class WorkerBackend:
             "max_turns": request.get("max_turns") or DEFAULT_MAX_TURNS,
             "extra_env": request.get("extra_env") or {},
         }
-        tf = tempfile.NamedTemporaryFile(
+        # delete=False: the request file outlives this block (worker reads it,
+        # then it is unlinked in the finally below).
+        tf = tempfile.NamedTemporaryFile(  # noqa: SIM115
             "w", suffix=".json", encoding="utf-8", delete=False
         )
         try:
@@ -338,8 +346,15 @@ class WorkerBackend:
             )
         except FileNotFoundError as exc:
             raise BackendConfigError(f"worker interpreter not executable: {python}") from exc
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise BackendRuntimeError(f"failed to launch worker: {exc}") from exc
+
+        # all three pipes were requested above; narrow Optional for the type
+        # checker (the runtime contract of PIPE guarantees them here).  Bind to
+        # locals - attribute narrowing does not survive into the closures below.
+        stdin_stream, stdout_stream = proc.stdin, proc.stdout
+        stderr_stream = proc.stderr
+        assert stdin_stream and stdout_stream and stderr_stream
 
         terminal: dict[str, Any] | None = None
         got_stdout_eof = False
@@ -371,16 +386,18 @@ class WorkerBackend:
                     emit("vuln", ev.get("report", {}))
                 elif et == "event":
                     emit("event", {"agent_id": ev.get("agent_id"), "event": ev.get("event")})
+                elif et == "heartbeat":
+                    emit("heartbeat", {"ts": ev.get("ts")})
             got_stdout_eof = True
 
         async def tee_stderr() -> None:
             while True:
-                line = await proc.stderr.readline()
+                line = await stderr_stream.readline()
                 if not line:
                     return
                 emit("log", line.decode("utf-8", errors="replace").rstrip())
 
-        drain_task = asyncio.ensure_future(drain(proc.stdout, "stdout"))
+        drain_task = asyncio.ensure_future(drain(stdout_stream, "stdout"))
         stderr_task = asyncio.ensure_future(tee_stderr())
         cancel_proxy = asyncio.ensure_future(cancel_event.wait())
 
@@ -393,9 +410,9 @@ class WorkerBackend:
                 if cancel_proxy in done:
                     # request cancellation: worker watches stdin
                     try:
-                        proc.stdin.write(b'{"type": "cancel"}\n')
-                        await proc.stdin.drain()
-                        proc.stdin.close()
+                        stdin_stream.write(b'{"type": "cancel"}\n')
+                        await stdin_stream.drain()
+                        stdin_stream.close()
                     except (BrokenPipeError, OSError):
                         pass
                 if drain_task in done:

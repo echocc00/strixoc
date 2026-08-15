@@ -85,45 +85,48 @@ def test_default_deny():
 
 def test_authorized_ok(default_config):
     c = _cfg(allowed_targets=["localhost"], require_authorized_flag=True)
-    d = authz.check_authorization(c, chat_id="cli", user_id="u1",
-                                  target="http://localhost:3000", confirm=True)
+    d = authz.check_authorization(
+        c, chat_id="cli", user_id="u1", target="http://localhost:3000", confirm=True
+    )
     assert d.allowed and d.reason == "ok"
 
 
 def test_confirm_required_gate(default_config):
     c = _cfg(allowed_targets=["localhost"], require_authorized_flag=True)
-    d = authz.check_authorization(c, chat_id="cli", user_id="u1",
-                                  target="localhost", confirm=False)
+    d = authz.check_authorization(c, chat_id="cli", user_id="u1", target="localhost", confirm=False)
     assert not d.allowed
     assert d.reason == "confirm_required"
 
 
 def test_confirm_not_required_when_flag_off(default_config):
     c = _cfg(allowed_targets=["localhost"], require_authorized_flag=False)
-    d = authz.check_authorization(c, chat_id="cli", user_id="u1",
-                                  target="localhost", confirm=False)
+    d = authz.check_authorization(c, chat_id="cli", user_id="u1", target="localhost", confirm=False)
     assert d.allowed
 
 
 def test_chat_allowlist(default_config):
     c = _cfg(allowed_chats=["chat-1"], allowed_targets=["localhost"])
-    assert authz.check_authorization(c, chat_id="chat-1", user_id="u1",
-                                     target="localhost", confirm=True).allowed
-    d = authz.check_authorization(c, chat_id="chat-9", user_id="u1",
-                                  target="localhost", confirm=True)
+    assert authz.check_authorization(
+        c, chat_id="chat-1", user_id="u1", target="localhost", confirm=True
+    ).allowed
+    d = authz.check_authorization(
+        c, chat_id="chat-9", user_id="u1", target="localhost", confirm=True
+    )
     assert not d.allowed and d.reason == "chat_not_allowed"
 
 
 def test_empty_chat_allowlist_allows_any(default_config):
     c = _cfg(allowed_chats=[], allowed_targets=["localhost"])
-    assert authz.check_authorization(c, chat_id="whatever", user_id="u1",
-                                     target="localhost", confirm=True).allowed
+    assert authz.check_authorization(
+        c, chat_id="whatever", user_id="u1", target="localhost", confirm=True
+    ).allowed
 
 
 def test_target_deny_wins(default_config):
     c = _cfg(allowed_targets=["localhost"])
-    d = authz.check_authorization(c, chat_id="cli", user_id="u1",
-                                  target="http://evil.example.com", confirm=True)
+    d = authz.check_authorization(
+        c, chat_id="cli", user_id="u1", target="http://evil.example.com", confirm=True
+    )
     assert not d.allowed and d.reason == "target_not_allowed"
 
 
@@ -133,8 +136,15 @@ def test_target_deny_wins(default_config):
 def test_audit_writes_jsonl_utf8(tmp_path):
     log = tmp_path / "strix-audit.jsonl"
     c = _cfg(audit_log=str(log))
-    authz.audit(c, action="check", chat_id="cli", user_id="用户",
-                target="localhost", decision="allowed", scan_id="scan-1")
+    authz.audit(
+        c,
+        action="check",
+        chat_id="cli",
+        user_id="用户",
+        target="localhost",
+        decision="allowed",
+        scan_id="scan-1",
+    )
     line = log.read_text(encoding="utf-8").strip()
     rec = json.loads(line)
     assert rec["action"] == "check"
@@ -153,9 +163,11 @@ def test_audit_never_raises_on_bad_dir(tmp_path):
 def test_hook_blocks_unauthorized_scan(default_config):
     c = _cfg(allowed_targets=["localhost"], require_authorized_flag=True)
     out = authz.pre_tool_call_hook(
-        c, tool_name="strix_scan",
+        c,
+        tool_name="strix_scan",
         args={"target": "http://evil.example.com", "confirm_authorized": True},
-        session_id="s1")
+        session_id="s1",
+    )
     assert out is not None
     assert out["action"] == "block"
     assert "target_not_allowed" in out["message"]
@@ -164,21 +176,25 @@ def test_hook_blocks_unauthorized_scan(default_config):
 def test_hook_passes_allowed_scan(default_config):
     c = _cfg(allowed_targets=["localhost"], require_authorized_flag=True)
     out = authz.pre_tool_call_hook(
-        c, tool_name="strix_scan",
+        c,
+        tool_name="strix_scan",
         args={"target": "http://localhost:3000", "confirm_authorized": True},
-        session_id="s1")
+        session_id="s1",
+    )
     assert out is None
 
 
 def test_hook_ignores_other_tools(default_config):
     c = _cfg(allowed_targets=["localhost"])
-    assert authz.pre_tool_call_hook(
-        c, tool_name="write_file", args={"path": "x"}, session_id="s1") is None
+    assert (
+        authz.pre_tool_call_hook(c, tool_name="write_file", args={"path": "x"}, session_id="s1")
+        is None
+    )
 
 
 def test_hook_notes_missing_confirm_in_message(default_config):
     c = _cfg(allowed_targets=["localhost"], require_authorized_flag=True)
     out = authz.pre_tool_call_hook(
-        c, tool_name="strix_scan",
-        args={"target": "localhost"}, session_id="s1")
+        c, tool_name="strix_scan", args={"target": "localhost"}, session_id="s1"
+    )
     assert out is not None and out["action"] == "block"

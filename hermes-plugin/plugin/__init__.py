@@ -19,7 +19,8 @@ from pathlib import Path
 
 
 def register(ctx) -> None:
-    from . import authz, broadcast, commands, config as cfgmod
+    from . import authz, broadcast, commands
+    from . import config as cfgmod
     from . import strix_tools as tools
 
     cfg = cfgmod.load_config()
@@ -54,7 +55,7 @@ def register(ctx) -> None:
             name="pentest",
             path=skill_md,
             description="Authorized Strix autonomous pentest — when to scan, "
-                        "authorization discipline, result handling",
+            "authorization discipline, result handling",
         )
 
     ctx.register_hook(
@@ -80,5 +81,5 @@ def register(ctx) -> None:
         from . import mcp
 
         mcp.ensure_gateway_mcp_startup()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logging.getLogger(__name__).debug("MCP gateway bridge unavailable", exc_info=True)

@@ -2,30 +2,29 @@
 
 import asyncio
 import json
-import os
 import sys
-from pathlib import Path
 
 import pytest
 
 from plugin.backends import (
     BackendConfigError,
     InProcessBackend,
-    RunOutcome,
     WorkerBackend,
     _spawn_flags,
     build_scan_config,
     read_run_artifacts,
 )
 
-
 # --- build_scan_config ------------------------------------------------------
 
 
 def test_scan_config_web_url():
     c = build_scan_config(
-        target="http://app.example.com:8080/x", scan_mode="standard",
-        user_instructions="only /api", run_name="r1", scan_id="sc-1",
+        target="http://app.example.com:8080/x",
+        scan_mode="standard",
+        user_instructions="only /api",
+        run_name="r1",
+        scan_id="sc-1",
     )
     assert c["targets"] == [
         {"type": "web_application", "details": {"target_url": "http://app.example.com:8080/x"}}
@@ -43,7 +42,9 @@ def test_scan_config_ip_target():
 
 
 def test_scan_config_bad_mode_falls_back_to_quick():
-    c = build_scan_config(target="http://a.test", scan_mode="ludicrous", run_name="r3", scan_id="sc-3")
+    c = build_scan_config(
+        target="http://a.test", scan_mode="ludicrous", run_name="r3", scan_id="sc-3"
+    )
     assert c["scan_mode"] == "quick"
 
 
@@ -156,7 +157,8 @@ async def test_inprocess_wiring_and_artifact_outcome(fake_strix):
     events = []
     backend = InProcessBackend()
     outcome = await backend.start(
-        make_request(), sink=lambda k, p: events.append((k, p)),
+        make_request(),
+        sink=lambda k, p: events.append((k, p)),
         cancel_event=asyncio.Event(),
     )
     assert outcome.ok

@@ -66,7 +66,11 @@ def hermes_home() -> Path:
     if env:
         return Path(env)
     if sys.platform == "win32":
-        base = Path(os.environ.get("LOCALAPPDATA", "")) if os.environ.get("LOCALAPPDATA") else Path.home() / "AppData" / "Local"
+        base = (
+            Path(os.environ.get("LOCALAPPDATA", ""))
+            if os.environ.get("LOCALAPPDATA")
+            else Path.home() / "AppData" / "Local"
+        )
         return base / "hermes"
     return Path.home() / ".hermes"
 
@@ -78,8 +82,9 @@ def hermes_config_value(field: str, config_path: str | Path | None = None) -> st
     Resolution: explicit ``config_path`` (own option — set it when hermes runs
     under a named profile) -> env HERMES_HOME -> platform default home.  The
     fallback to the default home covers profile homes that lack credentials."""
-    value = _hermes_config_value_from(field, Path(config_path).expanduser()) \
-        if config_path else None
+    value = (
+        _hermes_config_value_from(field, Path(config_path).expanduser()) if config_path else None
+    )
     if value is not None:
         return value
     value = _hermes_config_value_from(field, hermes_home() / "config.yaml")
@@ -95,7 +100,11 @@ def hermes_config_value(field: str, config_path: str | Path | None = None) -> st
 
 def _platform_default_home() -> Path:
     if sys.platform == "win32":
-        base = Path(os.environ.get("LOCALAPPDATA", "")) if os.environ.get("LOCALAPPDATA") else Path.home() / "AppData" / "Local"
+        base = (
+            Path(os.environ.get("LOCALAPPDATA", ""))
+            if os.environ.get("LOCALAPPDATA")
+            else Path.home() / "AppData" / "Local"
+        )
         return base / "hermes"
     return Path.home() / ".hermes"
 
@@ -129,7 +138,7 @@ def resolve_worker_env(cfg: dict[str, Any]) -> dict[str, str]:
     for key, value in (cfg.get("worker_env") or {}).items():
         sval = str(value)
         if sval.startswith("@hermes:"):
-            resolved = hermes_config_value(sval[len("@hermes:"):], pinned)
+            resolved = hermes_config_value(sval[len("@hermes:") :], pinned)
             if resolved is not None:
                 out[key] = resolved
         else:
@@ -153,7 +162,7 @@ def load_config(path: Path | str | None = "auto") -> dict[str, Any]:
         raw = json.loads(p.read_text(encoding="utf-8"))
     else:
         try:
-            import yaml  # type: ignore[import-not-found]
+            import yaml
         except ImportError:
             raw = json.loads(p.read_text(encoding="utf-8"))
         else:

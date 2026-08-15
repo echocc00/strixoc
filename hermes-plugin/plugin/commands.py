@@ -13,9 +13,7 @@ from typing import Any
 
 from .runner import AuthError, get_manager
 
-PENTEST_ARGS_HINT = (
-    "<target> [--mode quick|standard|deep] [--budget 5] [--confirm-authorized]"
-)
+PENTEST_ARGS_HINT = "<target> [--mode quick|standard|deep] [--budget 5] [--confirm-authorized]"
 PENTEST_DESCRIPTION = "Run an authorized Strix autonomous pentest scan"
 
 
@@ -29,8 +27,10 @@ def _parse_pentest(raw: str) -> dict[str, Any]:
     except ValueError as exc:
         raise _Usage(f"unparseable arguments: {exc}") from exc
     if not toks:
-        raise _Usage("no target given — usage: /pentest <target> [--mode ...] [--budget N] "
-                     "[--confirm-authorized]")
+        raise _Usage(
+            "no target given — usage: /pentest <target> [--mode ...] [--budget N] "
+            "[--confirm-authorized]"
+        )
     if toks[0].startswith("-"):
         raise _Usage("first argument must be the target")
     target = toks[0]
@@ -66,23 +66,24 @@ async def handle_pentest(raw_args: str = "", **kw: Any) -> str:
     chat_id = str(kw.get("chat_id") or "") or "cli"
     try:
         rec = await get_manager().start(
-            target=p["target"], scan_mode=p["mode"], budget=p["budget"],
+            target=p["target"],
+            scan_mode=p["mode"],
+            budget=p["budget"],
             user_instructions="",
-            chat_id=chat_id, user_id=user_id, confirm=p["confirm"],
+            chat_id=chat_id,
+            user_id=user_id,
+            confirm=p["confirm"],
         )
     except AuthError as exc:
         reason = exc.decision.reason
         fix = {
             "target_not_allowed": "add it to `allowed_targets` in ~/.hermes/strix.yaml",
             "confirm_required": "re-run with `--confirm-authorized` after confirming the "
-                                "target is yours / you are authorized to test it",
+            "target is yours / you are authorized to test it",
             "chat_not_allowed": "ask the operator to add this chat to `allowed_chats`",
             "budget_over_cap": "lower `--budget` below `max_budget_cap`",
         }.get(reason, "see ~/.hermes/logs/strix-audit.jsonl")
-        return (
-            f"⛔ **Scan blocked** — {reason}.\n"
-            f"Target: `{p['target']}`\nFix: {fix}"
-        )
+        return f"⛔ **Scan blocked** — {reason}.\nTarget: `{p['target']}`\nFix: {fix}"
     return (
         f"🔒 **Strix scan started**\n\n"
         f"- scan_id: `{rec.scan_id}`\n- target: `{rec.target}`\n"
@@ -117,8 +118,9 @@ async def handle_strix(raw_args: str = "", **kw: Any) -> str:
     lines.append(f"- backend: {health.get('backend')}")
     lines.append(f"- worker_python configured: {health.get('worker_python_configured')}")
     lines.append(f"- allowlist: {', '.join(health.get('allowed_targets') or [])}")
-    lines.append(f"- budget: default ${health.get('max_budget_default')} "
-                 f"/ cap ${health.get('max_budget_cap')}")
-    lines.append("- commands: `/pentest <target> [--mode ...] [--budget N] "
-                 "[--confirm-authorized]`")
+    lines.append(
+        f"- budget: default ${health.get('max_budget_default')} "
+        f"/ cap ${health.get('max_budget_cap')}"
+    )
+    lines.append("- commands: `/pentest <target> [--mode ...] [--budget N] [--confirm-authorized]`")
     return "\n".join(lines)

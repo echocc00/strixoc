@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 Emit = Callable[[dict[str, Any]], None]
 
@@ -36,8 +37,8 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
 
     scan_id = request["scan_id"]
     scan_config = request["scan_config"]
-    from strix.report.state import ReportState, set_global_report_state
     from strix.core.runner import run_strix_scan
+    from strix.report.state import ReportState, set_global_report_state
 
     # The plugin's scan request may carry no sandbox image; fall back to the
     # worker's own strix settings (~/.strix/cli-config.json runtime.image) —
@@ -48,7 +49,7 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
             from strix.config.loader import load_settings
 
             image = load_settings().runtime.image or ""
-        except Exception:  # noqa: BLE001
+        except Exception:
             image = ""
 
     state = ReportState(scan_id)
@@ -72,6 +73,7 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
         emit({"type": "event", "agent_id": agent_id, "event": {"usage": usage}})
 
     run_dir: str | None = None
+    heartbeat = asyncio.ensure_future(_heartbeat_loop(emit))
     try:
         scan_task = asyncio.ensure_future(
             run_strix_scan(
@@ -87,9 +89,7 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
             )
         )
         cancel_proxy = asyncio.ensure_future(cancel_event.wait())
-        done, _ = await asyncio.wait(
-            {scan_task, cancel_proxy}, return_when=asyncio.FIRST_COMPLETED
-        )
+        done, _ = await asyncio.wait({scan_task, cancel_proxy}, return_when=asyncio.FIRST_COMPLETED)
         if cancel_proxy in done:
             scan_task.cancel()
         await scan_task
@@ -102,18 +102,27 @@ async def execute(request: dict, *, emit: Emit, cancel_event: asyncio.Event) -> 
         run_dir = str(state.get_run_dir())
         emit({"type": "cancelled", "run_dir": run_dir})
         return {"ok": False, "error": "cancelled"}
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         run_dir = str(state.get_run_dir())
         emit({"type": "failed", "run_dir": run_dir, "error": f"{type(exc).__name__}: {exc}"})
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
     finally:
+        heartbeat.cancel()
         with _suppress(asyncio.CancelledError):
             try:
                 result = state.cleanup()
                 if asyncio.iscoroutine(result):
                     asyncio.get_event_loop().run_until_complete(result)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
+
+
+async def _heartbeat_loop(emit: Emit, interval: float = 30.0) -> None:
+    """Liveness beacon so the parent can tell a busy worker from a dead one
+    (long scans emit no phase/event traffic for minutes at a time)."""
+    while True:
+        await asyncio.sleep(interval)
+        emit({"type": "heartbeat", "ts": round(time.time(), 3)})
 
 
 class _suppress:
@@ -147,8 +156,8 @@ def _ensure_terminal_report(state) -> None:
     state.update_scan_final_fields(
         executive_summary=summary,
         methodology="Strix autonomous scan (quick/standard/deep); see vulnerabilities.json "
-                    "and findings.sarif for the authoritative evidence.",
+        "and findings.sarif for the authoritative evidence.",
         technical_analysis=summary,
         recommendations="Review each finding in vulnerabilities.json; remediation steps are "
-                        "attached per finding where available.",
+        "attached per finding where available.",
     )

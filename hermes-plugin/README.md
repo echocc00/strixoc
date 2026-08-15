@@ -79,6 +79,16 @@ py -3.12 -m venv .venv
   findings.sarif / run.json 全部落盘」这条 MVP 关键闭环。
 - `tests/test_hermes_real_load.py` 用真实 `PluginManager`（HERMES_HOME 隔离）验证加载、工具注册和 hook 拦截。
 
+**发布门禁（0.3.0 起，打 tag 前必跑）**：CI 装不上 hermes（本地私有框架），
+金标套件在 CI 必然 skip。发布必须在「strix + hermes 双依赖」的 venv 里执行：
+
+```bash
+.venv/Scripts/python scripts/release_gate.py    # 必须 "100 passed, 0 skipped" 才能发
+```
+
+质量基线：ruff check / ruff format / mypy 全绿（CI lint job 强制），覆盖率
+门槛 75%（当前 85%）。版本路线图见 `DEV_PLAN.md`。
+
 ## 安全边界
 
 1. `allowed_targets` 静态白名单（exact / `*.domain` / `prefix.*` / CIDR / URL 前缀），默认deny，不解析 DNS
