@@ -21,6 +21,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # ``host:port`` explicitly for anything else; userinfo, non-http(s)
     # schemes and alternate IP encodings are denied outright.
     "allowed_targets": ["localhost", "127.0.0.1", "::1", "*.internal", "*.local"],
+    # Extra ports scannable on every host-family rule above (no :port needed
+    # per rule) - e.g. [3000, 8042].  For full-surface scans of an authorized
+    # environment use a ``:*`` rule suffix ("10.0.0.0/24:*") instead, which
+    # widens scope for that rule only.
+    "allowed_ports": [],
     # Chat ids allowed to start scans (CLI = "cli"). Empty list = any chat.
     "allowed_chats": [],
     # When true, every scan must explicitly confirm authorization via

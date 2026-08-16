@@ -4,6 +4,28 @@ All notable changes to the `hermes-plugin` (Strix × Hermes integration) are
 documented here.  Plugin version is independent of the vendored strix-agent
 version (upstream tracks its own releases).
 
+## [0.6.0] - 2026-08-16
+
+### Full-port authorization（全环境扫描授权）
+
+0.5.0 的端口白名单（host 规则默认仅 80/443）对"扫描整个被测环境所有
+端口"的真实场景过严。0.6.0 增加两个**显式**放宽机制，默认语义不变：
+
+- **规则后缀 `:*`**：授权该条规则范围内主机/子网/通配域的**任意端口**
+  - `"10.0.0.5:*"` 这台机器全端口
+  - `"10.0.0.0/24:*"` 整个子网任意主机任意端口（整个环境全表面）
+  - `"*.internal:*"` / `"[::1]:*"` 同理
+  - 审计 matched 字段带 `:*` 标记，授权范围可追溯
+- **全局 `allowed_ports`**（默认 `[]`）：一组端口对所有 host 类规则统一
+  放行（如 `[3000, 8042]`），免逐条规则写端口
+- `:*` 只放宽端口维度：userinfo / 非 http(s) scheme / 数字 IP 形态 /
+  越界主机的 deny 全部保持；单机 IP 规则的审计标签从 `10.0.0.5/32`
+  修为直读 `10.0.0.5`
+
+### 基线数据
+
+166+7 tests，0 skip；ruff/mypy 全绿。
+
 ## [0.5.0] - 2026-08-16
 
 ### Security hardening（DEV_PLAN 0.5.0 全项落地）

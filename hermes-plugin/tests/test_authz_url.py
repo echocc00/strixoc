@@ -32,8 +32,8 @@ def denied(target: str, rules: list[str], reason: str) -> None:
     assert d.reason == reason, f"{target!r}: expected {reason}, got {d.reason}"
 
 
-def allowed(target: str, rules: list[str]) -> None:
-    d = authz.target_allowed(target, rules)
+def allowed(target: str, rules: list[str], extra_ports: list[int] | None = None) -> None:
+    d = authz.target_allowed(target, rules, extra_ports=extra_ports)
     assert d.allowed, f"{target!r} must be allowed (got {d.reason})"
 
 
@@ -139,6 +139,74 @@ def test_port_jumping_between_schemes_blocked():
     rules = ["http://allowed.internal"]  # URL rule pins http origin
     allowed("http://allowed.internal/x", rules)
     denied("https://allowed.internal/x", rules, "target_not_allowed")
+
+
+# --- 5b. full-port authorization (":*" rules + allowed_ports, 0.6.0) -------------
+
+
+def test_star_rule_authorizes_every_port_on_that_host():
+    rules = ["10.0.0.5:*"]
+    allowed("http://10.0.0.5:8042/", rules)
+    allowed("10.0.0.5:22", rules)
+    allowed("10.0.0.5", rules)
+    denied("http://10.0.0.6:8042/", rules, "target_not_allowed")  # other host
+    d = authz.target_allowed("10.0.0.5:6379", rules)
+    assert d.matched == "10.0.0.5:*"  # audit shows the full-surface grant
+
+
+def test_star_rule_on_subnet_authorizes_whole_environment():
+    """The whole-environment use case: every host, every port in the CIDR."""
+    rules = ["10.0.0.0/24:*"]
+    allowed("http://10.0.0.5:8042/", rules)
+    denied("10.0.1.9:22", rules, "target_not_allowed")  # outside the /24
+    allowed("10.0.0.254:3000", rules)
+    denied("http://192.168.1.1/", rules, "target_not_allowed")
+
+
+def test_star_rule_on_wildcard():
+    rules = ["*.internal:*"]
+    allowed("a.internal:9090", rules)
+    allowed("http://b.c.internal:6379/", rules)
+    denied("a.evil.com:9090", rules, "target_not_allowed")
+
+
+def test_star_rule_does_not_weaken_other_checks():
+    """:* widens ports only - every other deny still applies."""
+    denied("http://user@a.internal/", ["*.internal:*"], "userinfo_not_allowed")
+    denied("file://a.internal/", ["*.internal:*"], "scheme_not_allowed")
+    denied("http://0x7f000001:22/", ["*.internal:*"], "suspicious_ip_form")
+
+
+def test_star_rule_ipv6_bracket_form():
+    allowed("[::1]:8080", ["[::1]:*"])
+    denied("[::2]:8080", ["[::1]:*"], "target_not_allowed")
+
+
+def test_allowed_ports_config_extends_host_rules():
+    """Global allowed_ports: listed ports work on every host-family rule,
+    unlisted non-web ports still denied."""
+    rules = ["*.internal"]
+    xp = [3000, 8042]
+    allowed("http://allowed.internal:3000/", rules, extra_ports=xp)
+    allowed("allowed.internal:8042", rules, extra_ports=xp)
+    denied("allowed.internal:22", rules, "target_not_allowed")  # not listed
+    denied("http://allowed.internal:3000/", rules, "target_not_allowed")  # no config
+
+
+def test_allowed_ports_via_check_authorization():
+    cfg = {
+        "allowed_targets": ["*.internal"],
+        "allowed_ports": [8042],
+        "require_authorized_flag": False,
+    }
+    d = authz.check_authorization(
+        cfg, chat_id="cli", user_id="u", target="http://allowed.internal:8042/", confirm=False
+    )
+    assert d.allowed and d.matched == "*.internal"
+    d2 = authz.check_authorization(
+        cfg, chat_id="cli", user_id="u", target="http://allowed.internal:22/", confirm=False
+    )
+    assert not d2.allowed and d2.reason == "target_not_allowed"
 
 
 # --- 6. path-prefix scope ---------------------------------------------------------

@@ -1,6 +1,6 @@
 [project]
 name = "hermes-strix-plugin"
-version = "0.5.0"
+version = "0.6.0"
 description = "Hermes plugin x Strix autonomous pentest integration (CLI/gateway/Feishu reuse)"
 readme = "README.md"
 requires-python = ">=3.11"

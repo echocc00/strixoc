@@ -60,6 +60,9 @@ audit_log: "~/.hermes/logs/strix-audit.jsonl"
 # 0.5.0 目标匹配语义：host 规则默认只允许 80/443（或无端口）；非标准端口
 # 必须写进规则（如 "10.0.0.5:8042"）。userinfo（user@host）、非 http/https
 # scheme、整数/十六进制/八进制 IP 形态一律 deny（见 tests/test_authz_url.py）。
+# 0.6.0 全端口授权：规则后缀 ":*" 授权该主机/子网/通配域的任意端口
+# （如 "10.0.0.0/24:*" = 整个子网全端口扫描）；或全局 allowed_ports:
+# [3000, 8042] 对所有 host 类规则统一放行这组端口。
 
 # 3) 验证
 python scripts/verify_env.py

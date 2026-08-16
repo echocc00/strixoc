@@ -154,6 +154,10 @@ DEFAULT_PORTS = {"http": 80, "https": 443}
 # Host-family rules (host / wildcard / CIDR) allow these explicit ports
 # without the rule naming them; anything else must be listed as host:port.
 ALLOWED_DEFAULT_PORTS = {80, 443}
+# Rule suffix ":*" = authorize every port on that host/subnet/wildcard
+# (explicit full-surface grant for authorized environment scans).  Sentinel
+# internal to the port matcher.
+ANY_PORT = -1
 _HOST_CHARS = re.compile(r"^[a-z0-9_.-]+$")
 
 
@@ -223,17 +227,21 @@ def parse_target(target: str) -> TargetParts | None:
 
 
 def _split_rule_hostport(rule: str) -> tuple[str | None, int | None]:
-    """Split an operator-written host rule into (host, port|None).  Rules are
-    operator-owned; unparseable rules are dropped (fail closed)."""
+    """Split an operator-written host rule into (host, port|ANY_PORT|None).
+    Rules are operator-owned; unparseable rules are dropped (fail closed)."""
     if rule.startswith("["):
-        m = re.match(r"^\[([^\]]+)\](?::(\d+))?$", rule)
+        m = re.match(r"^\[([^\]]+)\](?::(\d+|\*))?$", rule)
         if not m:
             return None, None
-        return m.group(1).lower(), int(m.group(2)) if m.group(2) else None
+        if m.group(2) is None:
+            return m.group(1).lower(), None
+        return m.group(1).lower(), ANY_PORT if m.group(2) == "*" else int(m.group(2))
     if rule.count(":") >= 2:  # bare IPv6 rule
         return (rule, None) if _host_is_ip(rule) is not None else (None, None)
     if rule.count(":") == 1:
         hs, ps = rule.rsplit(":", 1)
+        if ps == "*":
+            return hs.lower().rstrip("."), ANY_PORT
         if ps.isdigit():
             return hs.lower().rstrip("."), int(ps)
     return rule.lower().rstrip("."), None
@@ -253,22 +261,40 @@ def _is_suspicious_numeric(host: str) -> bool:
     return False
 
 
-def _port_matches(target_port: int | None, rule_port: int | None, scheme: str) -> bool:
-    """Port allowlisting: host-family rules permit no explicit port or the
-    standard web ports; a pinned rule port matches only itself (or the
-    scheme default when the target omits the port)."""
+def _port_matches(
+    target_port: int | None,
+    rule_port: int | None,
+    scheme: str,
+    extra_ports: frozenset[int] = frozenset(),
+) -> bool:
+    """Port allowlisting: ``:*`` rules permit every port; host-family rules
+    permit no explicit port, the standard web ports, or a port named in the
+    global ``allowed_ports`` config; a pinned rule port matches only itself
+    (or the scheme default when the target omits the port)."""
+    if rule_port == ANY_PORT:
+        return True
     if rule_port is not None:
         if target_port == rule_port:
             return True
         return target_port is None and DEFAULT_PORTS.get(scheme) == rule_port
-    return target_port is None or target_port in ALLOWED_DEFAULT_PORTS
+    return target_port is None or target_port in ALLOWED_DEFAULT_PORTS or target_port in extra_ports
+
+
+def _rule_port_label(port: int | None) -> str:
+    if port is None:
+        return ""
+    return ":*" if port == ANY_PORT else f":{port}"
 
 
 def _effective_port(pt: TargetParts) -> int | None:
     return pt.port if pt.port is not None else DEFAULT_PORTS.get(pt.scheme)
 
 
-def target_allowed(target: str, rules: list[str]) -> AuthDecision:
+def target_allowed(
+    target: str,
+    rules: list[str],
+    extra_ports: list[int] | set[int] | None = None,
+) -> AuthDecision:
     pt = parse_target(target)
     if pt is None:
         return AuthDecision(False, "invalid_target")
@@ -282,26 +308,35 @@ def target_allowed(target: str, rules: list[str]) -> AuthDecision:
         return AuthDecision(False, "invalid_target")
     if _is_suspicious_numeric(pt.host):
         return AuthDecision(False, "suspicious_ip_form")
+    xports = frozenset(
+        int(p) for p in (extra_ports or []) if isinstance(p, (int, str)) and str(p).isdigit()
+    )
     rs = _RuleSet.from_rules(rules)
     host, port = pt.host, pt.port
     for ehost, eport in rs.exact:
-        if host == ehost and _port_matches(port, eport, pt.scheme):
-            return AuthDecision(True, "ok", matched=ehost + (f":{eport}" if eport else ""))
+        if host == ehost and _port_matches(port, eport, pt.scheme, xports):
+            return AuthDecision(True, "ok", matched=ehost + _rule_port_label(eport))
     for domain, rport in rs.suffix.items():
-        if host.endswith("." + domain) and host != domain and _port_matches(port, rport, pt.scheme):
-            return AuthDecision(True, "ok", matched=f"*.{domain}")
+        if (
+            host.endswith("." + domain)
+            and host != domain
+            and _port_matches(port, rport, pt.scheme, xports)
+        ):
+            return AuthDecision(True, "ok", matched=f"*.{domain}" + _rule_port_label(rport))
     for prefix, rport in rs.prefix:
         if (
             host.startswith(prefix + ".")
             and host != prefix
-            and _port_matches(port, rport, pt.scheme)
+            and _port_matches(port, rport, pt.scheme, xports)
         ):
-            return AuthDecision(True, "ok", matched=f"{prefix}.*")
+            return AuthDecision(True, "ok", matched=f"{prefix}.*" + _rule_port_label(rport))
     ip = _host_is_ip(host)
     if ip is not None:
         for net, rport in rs.subnets:
-            if ip in net and _port_matches(port, rport, pt.scheme):
-                return AuthDecision(True, "ok", matched=str(net))
+            if ip in net and _port_matches(port, rport, pt.scheme, xports):
+                # single-host CIDRs keep the plain-host label for audit clarity
+                label = str(net) if net.num_addresses > 1 else str(net.network_address)
+                return AuthDecision(True, "ok", matched=label + _rule_port_label(rport))
     for rpt in rs.urls:
         if pt.scheme != rpt.scheme or host != rpt.host:
             continue
@@ -326,7 +361,9 @@ def check_authorization(
     chats = cfg.get("allowed_chats") or []
     if chats and chat_id not in chats:
         return AuthDecision(False, "chat_not_allowed")
-    d = target_allowed(str(target), cfg.get("allowed_targets") or [])
+    d = target_allowed(
+        str(target), cfg.get("allowed_targets") or [], extra_ports=cfg.get("allowed_ports")
+    )
     if not d.allowed:
         # keep the specific reason (userinfo_not_allowed, scheme_not_allowed,
         # ...) - DEV_PLAN 3.2: the audit trail must show *why*
