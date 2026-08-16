@@ -4,6 +4,33 @@ All notable changes to the `hermes-plugin` (Strix × Hermes integration) are
 documented here.  Plugin version is independent of the vendored strix-agent
 version (upstream tracks its own releases).
 
+## [0.4.0] - 2026-08-16
+
+### Ops automation（DEV_PLAN 0.4.0 全项落地）
+
+- **systemd unit 模板入 repo**（`runbook/systemd/hermes-strix-feishu.service.in`
+  + `scripts/install_service.sh`）：NAS 网关 unit 从手工维护改为 repo 渲染
+  （占位符 HERMES_HOME/ENV_FILE/LOCK_DIR/HERMES_BIN/PROFILE），重装/换机
+  恢复 = 跑一次脚本（render -> daemon-reload -> enable --now）；`--print`
+  可无副作用预览。模板契约有测试钉死（占位符集合、渲染无残留、INI 结构）。
+- **产物 retention**（`scripts/prune_runs.py`）：清理超过 N 天（默认 30）的
+  `strix_runs/<id>/`（含 PoC）；删除前把 run 摘要（status/漏洞数/成本）
+  归档进 `strix_runs/index.jsonl`（1.x 趋势 diff 数据源）。默认 dry-run，
+  `--apply` 才删；非扫描目录（无 run.json 且非 strix- 前缀）永不触碰；
+  拒绝对文件系统根操作。standalone 无插件依赖，NAS cron 直接可用。
+- **审计日志轮转**：`authz.audit` 从裸 open/append 切换为按路径缓存的
+  RotatingFileHandler（10MB × 5，`strix-audit.jsonl.1`...），磁盘占用有界，
+  旧审计可查；写入失败仍静默（审计不破坏扫描路径）。
+- **故障告警**：scan 终态 cancelled/failed -> broadcast 飞书告警卡片
+  （状态/原因/时长/已见漏洞数）；worker 心跳死亡（90s 超时）由 30s 看门狗
+  检测 -> 同路径 `worker_dead` 告警 + 审计留痕（≤2min 可见）。配置
+  `notify_on_failure`（默认开）与 `notify_chat_id`（固定运维群，经
+  dispatch latch 的 send_to 路由，未 latch 回退当前会话）。
+
+### 基线数据
+
+133 tests（+33），0 skip；coverage 85.51%；ruff/mypy 全绿。
+
 ## [0.3.0] - 2026-08-16
 
 ### Quality gates（DEV_PLAN 0.3.0 全项落地）

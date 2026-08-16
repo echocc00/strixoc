@@ -43,6 +43,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # activation can move HERMES_HOME around and home-based resolution is
     # not reliable.  Empty = env HERMES_HOME -> platform default home.
     "hermes_config_path": "",
+    # Failure alerting (DEV_PLAN 2.4): cancelled/failed scans and dead
+    # workers broadcast a card through the gateway channel.  Set
+    # ``notify_chat_id`` to always route alerts to a fixed ops chat
+    # (requires the gateway adapter); empty = the chat that started the scan.
+    "notify_on_failure": True,
+    "notify_chat_id": "",
 }
 
 

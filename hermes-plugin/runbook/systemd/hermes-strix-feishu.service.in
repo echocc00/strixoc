@@ -1,0 +1,24 @@
+[Unit]
+Description=Hermes gateway (Strix pentest integration, feishu profile)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+# HERMES_HOME must be explicit: the service user's HOME is unreliable for
+# config/strix.yaml + plugin resolution (NAS_WORKER.md SS9 lesson 2).
+Environment=HERMES_HOME={{HERMES_HOME}}
+# Separate lock dir so this gateway never fights the production gateway's
+# instance lock (NAS_WORKER.md SS10).
+Environment=HERMES_GATEWAY_LOCK_DIR={{LOCK_DIR}}
+# Secrets (LLM keys, feishu credentials) live only in the env file (chmod 600).
+EnvironmentFile={{ENV_FILE}}
+WorkingDirectory={{HERMES_HOME}}
+ExecStart={{HERMES_BIN}} gateway run --profile {{PROFILE}}
+Restart=always
+RestartSec=5
+# stdout/stderr go to journald: journalctl -u <unit> -f replaces feishu-gw.log
+
+[Install]
+WantedBy=multi-user.target

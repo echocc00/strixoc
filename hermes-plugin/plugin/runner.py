@@ -61,6 +61,7 @@ class ScanRecord:
     report_head: str = ""
     by_severity: dict[str, int] = field(default_factory=dict)
     last_heartbeat: str = ""
+    worker_dead_notified: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -82,6 +83,13 @@ class ScanManager:
         from . import config as cfgmod
 
         self._cfg = cfgmod.load_config(path="auto") if cfg is None else cfg
+        self._records: dict[str, ScanRecord] = {}
+        self._tasks: dict[str, asyncio.Task] = {}
+        self._cancel_events: dict[str, asyncio.Event] = {}
+        self._listeners: dict[str, list[Listener]] = {}
+        self._all_listeners: list[Callable[[str, str, Any], None]] = []
+        self._lock = threading.Lock()
+        self._watchdog_task: asyncio.Task | None = None
         self._db_path = Path(
             scans_db
             or os.path.expanduser(
@@ -94,13 +102,12 @@ class ScanManager:
             if wpy
             else _auto_backend(self._cfg)
         )
-        self._records: dict[str, ScanRecord] = {}
-        self._tasks: dict[str, asyncio.Task] = {}
-        self._cancel_events: dict[str, asyncio.Event] = {}
-        self._listeners: dict[str, list[Listener]] = {}
-        self._all_listeners: list[Callable[[str, str, Any], None]] = []
-        self._lock = threading.Lock()
         self._load()
+
+    @property
+    def cfg(self) -> dict[str, Any]:
+        """Plugin config (broadcast alerting reads notify_on_failure etc)."""
+        return self._cfg
 
     # -- persistence ---------------------------------------------------------
 
@@ -270,6 +277,7 @@ class ScanManager:
         cancel_event = asyncio.Event()
         self._cancel_events[scan_id] = cancel_event
         self._tasks[scan_id] = asyncio.ensure_future(self._run(request, record, cancel_event))
+        self._ensure_watchdog()
         return record
 
     async def _run(self, request: dict, record: ScanRecord, cancel_event: asyncio.Event) -> None:
@@ -346,6 +354,8 @@ class ScanManager:
                 "error": record.error,
                 "by_severity": record.by_severity,
                 "vuln_count": record.vuln_count,
+                "created_at": record.created_at,
+                "duration_s": self._duration_s(record),
             }
             for sub in list(self._listeners.pop(scan_id, [])):
                 try:
@@ -364,9 +374,60 @@ class ScanManager:
         record.updated_at = _dt.datetime.now(_dt.UTC).isoformat()
         self._persist()
 
+    @staticmethod
+    def _duration_s(record: ScanRecord) -> float | None:
+        try:
+            start = _dt.datetime.fromisoformat(record.created_at)
+            end = _dt.datetime.fromisoformat(record.updated_at)
+        except ValueError:
+            return None
+        return round((end - start).total_seconds(), 1)
+
     # -- accessors -----------------------------------------------------------
 
     HEARTBEAT_TIMEOUT_S = 90.0  # 3x the worker's 30s interval
+    WATCHDOG_PERIOD_S = 30.0  # poll cadence; 90s timeout -> alert <= ~2min
+
+    def _ensure_watchdog(self) -> None:
+        """Liveness watchdog: while any scan runs, re-evaluate heartbeats
+        every WATCHDOG_PERIOD_S so a dead worker (OOM / broken pipe) alerts
+        without waiting for someone to poll strix_status."""
+        if self._watchdog_task is None or self._watchdog_task.done():
+            self._watchdog_task = asyncio.ensure_future(self._watchdog())
+
+    async def _watchdog(self) -> None:
+        while True:
+            await asyncio.sleep(self.WATCHDOG_PERIOD_S)
+            for rec in list(self._records.values()):
+                if rec.status == "running":
+                    try:
+                        self._liveness(rec)
+                    except Exception:
+                        pass
+
+    def _on_worker_dead(self, rec: ScanRecord, age_s: float | None) -> None:
+        """Alert once per scan that the worker stopped heartbeating."""
+        if rec.worker_dead_notified or rec.status != "running":
+            return
+        rec.worker_dead_notified = True
+        audit(
+            self._cfg,
+            action="worker_dead",
+            scan_id=rec.scan_id,
+            target=rec.target,
+            heartbeat_age_s=age_s,
+        )
+        payload = {"scan_id": rec.scan_id, "heartbeat_age_s": age_s}
+        for sub in list(self._listeners.get(rec.scan_id, [])):
+            try:
+                sub("worker_dead", payload)
+            except Exception:
+                pass
+        for allfn in list(self._all_listeners):
+            try:
+                allfn(rec.scan_id, "worker_dead", payload)
+            except Exception:
+                pass
 
     def _liveness(self, rec: ScanRecord) -> dict[str, Any]:
         """Worker liveness for a running scan (heartbeat-based, worker backend
@@ -383,8 +444,11 @@ class ScanManager:
             except ValueError:
                 age = None
         if age is not None:
+            alive = age <= self.HEARTBEAT_TIMEOUT_S
+            if not alive:
+                self._on_worker_dead(rec, round(age, 1))
             return {
-                "worker_alive": age <= self.HEARTBEAT_TIMEOUT_S,
+                "worker_alive": alive,
                 "heartbeat_age_s": round(age, 1),
             }
         try:
@@ -392,6 +456,8 @@ class ScanManager:
         except ValueError:
             started = time.time()
         in_grace = (time.time() - started) < self.HEARTBEAT_TIMEOUT_S
+        if not in_grace:
+            self._on_worker_dead(rec, None)
         return {"worker_alive": in_grace, "heartbeat_age_s": None}
 
     def get(self, scan_id: str) -> dict[str, Any] | None:

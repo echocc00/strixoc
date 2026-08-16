@@ -22,19 +22,41 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 Channel = Callable[[str], None]  # outbound text sink (sync wrapper over adapter.send)
+SendTo = Callable[[str, str], None]  # (chat_id, text) sink for ops-alert routing
 
 # module-level latching (gateway dispatch is a per-process singleton)
 _channel: Channel | None = None
+_send_to: SendTo | None = None
 _installed_subscription = False
+# test override for _plugin_cfg(); None = resolve from the ScanManager
+_cfg_override: dict[str, Any] | None = None
 
 
-def set_channel(channel: Channel | None) -> None:
-    global _channel
+def set_channel(channel: Channel | None, send_to: SendTo | None = None) -> None:
+    global _channel, _send_to
     _channel = channel
+    _send_to = send_to or (None if channel is None else _send_to)
 
 
 def get_channel() -> Channel | None:
     return _channel
+
+
+def get_send_to() -> SendTo | None:
+    return _send_to
+
+
+def _plugin_cfg() -> dict[str, Any]:
+    """Config for alert routing (notify_on_failure / notify_chat_id).
+    ScanManager is the source of truth; config-module defaults as fallback."""
+    if _cfg_override is not None:
+        return _cfg_override
+    try:
+        from . import runner
+
+        return runner.get_manager().cfg
+    except Exception:
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -67,12 +89,75 @@ def failed_text(scan_id: str, error: str) -> str:
     return f"❌ `{scan_id}` failed — {error}"
 
 
+def _fmt_duration(seconds: Any) -> str:
+    if not isinstance(seconds, (int, float)) or seconds < 0:
+        return "unknown"
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    return f"{h}h{m:02d}m" if h else f"{m}m{s:02d}s"
+
+
+def failure_card(scan_id: str, payload: dict[str, Any]) -> str:
+    """Alert card for cancelled/failed terminal states (DEV_PLAN 2.4)."""
+    status = str(payload.get("status") or "failed")
+    icon = "❌" if status == "failed" else "⚠️"
+    counts = payload.get("by_severity") or {}
+    counts_s = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "0"
+    parts = [
+        f"{icon} Strix scan {status} - `{scan_id}`",
+        f"reason: {payload.get('error') or 'unknown'}",
+        f"duration: {_fmt_duration(payload.get('duration_s'))}",
+        f"vulns seen: {payload.get('vuln_count', 0)} ({counts_s})",
+    ]
+    return chr(10).join(parts)
+
+
+def worker_dead_text(scan_id: str, payload: dict[str, Any]) -> str:
+    age = payload.get("heartbeat_age_s")
+    age_s = f"{age}s stale" if isinstance(age, (int, float)) else "no heartbeat"
+    return (
+        f"☠️ `{scan_id}` worker appears dead ({age_s}) - scan is hung. "
+        "Check `strix_status`, then `strix_cancel` to clean up."
+    )
+
+
 # ---------------------------------------------------------------------------
 # event fan-out (subscribes to ScanManager once)
 # ---------------------------------------------------------------------------
 
 
+def _route_alert(text: str, cfg: dict[str, Any]) -> bool:
+    """Send a failure alert: fixed ops chat (notify_chat_id) if configured,
+    else the latched channel.  Returns True when delivered somewhere."""
+    dest = str(cfg.get("notify_chat_id") or "")
+    if dest:
+        sink = get_send_to()
+        if sink is not None:
+            try:
+                sink(dest, text)
+                return True
+            except Exception:
+                logger.exception("broadcast alert send_to failed")
+        logger.warning("broadcast: notify_chat_id set but no send_to latched - falling back")
+    chan = _channel
+    if chan is None:
+        logger.info("broadcast: alert dropped - no channel latched")
+        return False
+    try:
+        chan(text)
+    except Exception:
+        logger.exception("broadcast send failed")
+        return False
+    return True
+
+
 def _on_scan_event(scan_id: str, kind: str, payload: Any) -> None:
+    if kind == "worker_dead" and isinstance(payload, dict):
+        cfg = _plugin_cfg()
+        if not cfg.get("notify_on_failure", True):
+            return
+        _route_alert(worker_dead_text(scan_id, payload), cfg)
+        return
     chan = _channel
     if chan is None:
         logger.info("broadcast: event %s/%s dropped — no channel latched", scan_id, kind)
@@ -84,11 +169,13 @@ def _on_scan_event(scan_id: str, kind: str, payload: Any) -> None:
             text = vuln_text(scan_id, payload)
         elif kind == "finished" and isinstance(payload, dict):
             status = payload.get("status")
-            text = (
-                finished_text(scan_id, payload)
-                if status == "finished"
-                else failed_text(scan_id, str(payload.get("error") or "unknown"))
-            )
+            if status in ("failed", "cancelled"):
+                cfg = _plugin_cfg()
+                if not cfg.get("notify_on_failure", True):
+                    return
+                _route_alert(failure_card(scan_id, payload), cfg)
+                return
+            text = finished_text(scan_id, payload)
         else:
             return
     except Exception:
@@ -156,20 +243,27 @@ def pre_gateway_dispatch_hook(
         logger.info("broadcast: latching gateway chat -> platform=%s chat=%s", platform, chat_id)
 
         def send(text: str) -> None:
-            try:
-                logger.info("broadcast: sending to %s: %.120s", chat_id, text.replace("\n", " "))
-                coro = adapter.send(chat_id, text)
-                # fire-and-forget by design: progress pushes must never
-                # block the gateway dispatch path; failures only log.
-                try:
-                    asyncio.get_running_loop().create_task(coro)
-                except RuntimeError:
-                    asyncio.ensure_future(coro)  # noqa: RUF006
-            except Exception:
-                logger.exception("gateway broadcast send failed")
+            _spawn_send(adapter, chat_id, text)
 
-        set_channel(send)
+        def send_to(dest_chat: str, text: str) -> None:
+            _spawn_send(adapter, dest_chat, text)
+
+        set_channel(send, send_to)
         ensure_subscription()
     except Exception:
         logger.exception("pre_gateway_dispatch hook failed")
     return None
+
+
+def _spawn_send(adapter: Any, chat_id: Any, text: str) -> None:
+    """Fire-and-forget adapter.send: progress pushes must never block the
+    gateway dispatch path; failures only log."""
+    try:
+        logger.info("broadcast: sending to %s: %.120s", chat_id, text.replace("\n", " "))
+        coro = adapter.send(chat_id, text)
+        try:
+            asyncio.get_running_loop().create_task(coro)
+        except RuntimeError:
+            asyncio.ensure_future(coro)  # noqa: RUF006
+    except Exception:
+        logger.exception("gateway broadcast send failed")

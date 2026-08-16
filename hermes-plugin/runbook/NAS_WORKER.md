@@ -140,3 +140,31 @@ journalctl -u hermes-strix-feishu -f     # 实时日志（feishu-gw.log 与其�
 - 与生产网关的关系不变：生产 = `hermes-gateway.service`（root，base home）；
   飞书测试/集成 = `hermes-strix-feishu.service`（profile feishu-p0）
 - 配置/插件更新后：`systemctl restart hermes-strix-feishu`（不再手动 pkill）
+- **unit 模板已入 repo**（0.4.0，消除手改漂移）：源 =
+  `runbook/systemd/hermes-strix-feishu.service.in`；NAS 重装/换机恢复只需
+  ```bash
+  sudo scripts/install_service.sh \
+    --hermes-home /volume1/soft/Hermes/.hermes \
+    --env-file    /volume1/soft/Hermes/.feishu-gateway.env \
+    --lock-dir    /volume1/soft/Hermes/locks-feishu-p0
+  # 预览渲染（不动系统）：加 --print
+  ```
+
+## 11. 运维自动化（0.4.0，2026-08-16）
+
+- **产物 retention**：`strix_runs/` 只保留最近 N 天（默认 30），删除前把
+  run 摘要（status/漏洞数/成本）归档进 `strix_runs/index.jsonl`（1.x 趋势
+  diff 的数据源）。默认 dry-run，`--apply` 才真删：
+  ```bash
+  python3 scripts/prune_runs.py --days 30           # 先看会删什么
+  python3 scripts/prune_runs.py --days 30 --apply   # 归档摘要 + 删除
+  # NAS cron（周日 04:17）：
+  17 4 * * 0 cd /volume1/soft/Hermes && python3 hermes-plugin/scripts/prune_runs.py \
+      --runs-dir strix_runs --days 30 --apply >> ~/.hermes/logs/prune_runs.log 2>&1
+  ```
+- **审计轮转**：`strix-audit.jsonl` 走 RotatingFileHandler（10MB × 5，
+  旧文件 `strix-audit.jsonl.1`...），磁盘占用有界，无需 logrotate 配置。
+- **故障告警**：scan cancelled/failed 或 worker 心跳死亡（90s 无心跳，看门狗
+  30s 轮询 -> 飞书 ≤2min 收到卡片：原因/时长/已见漏洞数）。配置
+  `notify_on_failure`（默认 true）与 `notify_chat_id`（固定运维群，空 =
+  发起扫描的会话）。

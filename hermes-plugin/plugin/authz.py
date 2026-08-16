@@ -13,15 +13,62 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 DEFAULT_AUDIT_LOG = "~/.hermes/logs/strix-audit.jsonl"
+
+# Rotation (DEV_PLAN 2.3): 10MB x 5 keeps the audit trail bounded on the NAS
+# while old audit remains readable (strix-audit.jsonl.1 ... .5).
+AUDIT_MAX_BYTES = 10 * 1024 * 1024
+AUDIT_BACKUP_COUNT = 5
+
+_audit_loggers: dict[str, logging.Logger] = {}
+
+
+def _audit_logger(path: Path) -> logging.Logger | None:
+    """Logger with one rotating file handler per resolved audit path.  Cached:
+    audit is hot-path adjacent and re-creating handlers per call would both
+    leak fds and race the rotation.  None if the file cannot be opened -
+    auditing must never break the scan path."""
+    key = str(path)
+    lg = _audit_loggers.get(key)
+    if lg is not None:
+        return lg
+    lg = logging.getLogger(f"strix.audit.{key}")
+    lg.setLevel(logging.INFO)
+    lg.propagate = False  # audit lines go to the audit file only
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(
+            path,
+            maxBytes=AUDIT_MAX_BYTES,
+            backupCount=AUDIT_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        lg.addHandler(handler)
+    except OSError:
+        return None
+    _audit_loggers[key] = lg
+    return lg
+
+
+def _reset_audit_loggers() -> None:
+    """Close and drop cached audit loggers.  Test helper - also releases the
+    Windows file handles RotatingFileHandler keeps open."""
+    for lg in _audit_loggers.values():
+        for h in list(lg.handlers):
+            h.close()
+            lg.removeHandler(h)
+    _audit_loggers.clear()
 
 
 @dataclass
@@ -136,12 +183,10 @@ def audit(cfg: dict[str, Any], *, action: str, ts: str | None = None, **fields: 
         "action": action,
         **fields,
     }
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-    except OSError:
-        pass
+    lg = _audit_logger(path)
+    if lg is None:
+        return
+    lg.info(json.dumps(rec, ensure_ascii=False))
 
 
 def _hook_identity(kw: dict[str, Any]) -> tuple[str, str]:
