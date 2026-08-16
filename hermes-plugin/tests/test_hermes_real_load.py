@@ -27,7 +27,7 @@ def real_hermes(tmp_path, monkeypatch):
             shutil.copy2(f, plugin_home / f.name)
     (home / "config.yaml").write_text("plugins:\n  enabled:\n    - strix\n", encoding="utf-8")
     strix_cfg = tmp_path / "strix.yaml"
-    strix_cfg.write_text("allowed_targets:\n  - localhost\n", encoding="utf-8")
+    strix_cfg.write_text("allowed_targets:\n  - localhost\n  - localhost:3000\n", encoding="utf-8")
 
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setenv("HERMES_STRIX_CONFIG", str(strix_cfg))

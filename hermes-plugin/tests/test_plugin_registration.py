@@ -134,7 +134,7 @@ def test_pre_tool_call_hook_blocks_via_ctx():
     assert block is not None and block["action"] == "block"
     allowed = hooks["pre_tool_call"](
         tool_name="strix_scan",
-        args={"target": "http://localhost:3000", "confirm_authorized": True},
+        args={"target": "http://localhost", "confirm_authorized": True},
         session_id="sess-1",
     )
     assert allowed is None

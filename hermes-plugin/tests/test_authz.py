@@ -84,7 +84,8 @@ def test_default_deny():
 
 
 def test_authorized_ok(default_config):
-    c = _cfg(allowed_targets=["localhost"], require_authorized_flag=True)
+    # 0.5.0: explicit non-standard port must be listed in the rule (host:port)
+    c = _cfg(allowed_targets=["localhost:3000"], require_authorized_flag=True)
     d = authz.check_authorization(
         c, chat_id="cli", user_id="u1", target="http://localhost:3000", confirm=True
     )
@@ -174,7 +175,7 @@ def test_hook_blocks_unauthorized_scan(default_config):
 
 
 def test_hook_passes_allowed_scan(default_config):
-    c = _cfg(allowed_targets=["localhost"], require_authorized_flag=True)
+    c = _cfg(allowed_targets=["localhost:3000"], require_authorized_flag=True)
     out = authz.pre_tool_call_hook(
         c,
         tool_name="strix_scan",

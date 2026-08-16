@@ -4,6 +4,36 @@ All notable changes to the `hermes-plugin` (Strix × Hermes integration) are
 documented here.  Plugin version is independent of the vendored strix-agent
 version (upstream tracks its own releases).
 
+## [0.5.0] - 2026-08-16
+
+### Security hardening（DEV_PLAN 0.5.0 全项落地）
+
+- **authz URL 规范化管线**（`parse_target` + 重写 `target_allowed`）：
+  固定顺序管线 -- urlsplit 拆解、**userinfo 一律 deny**（OWASP SSRF
+  authority 混淆）、host 小写 + 去尾 dot（RFC 3986）、后缀锚定（禁止
+  字符串前缀）、**端口白名单语义**（host 类规则默认仅 80/443，非标准
+  端口必须 `host:port` 列出）、scheme 白名单（仅 http/https）、URL 规则
+  逐组件匹配（query/hash 不参与、路径边界检查）、反斜杠/内嵌空白/
+  非 ASCII host 拒绝、**整数/十六进制/八进制 IP 形态 deny**
+  （CWE-706 SSRF 数字形式）。拒绝解析 DNS 原则不变（防 rebinding）。
+  细分 deny 原因（`userinfo_not_allowed` 等）经 `check_authorization`
+  透传到审计（此前被压平成 `target_not_allowed`）。
+- **攻击用例集 `tests/test_authz_url.py`**：10 类向量 25 用例，每条注释
+  攻击向量与 CVE/OWASP/RFC 对应（userinfo 注入、尾 dot、大小写、端口
+  跳变、路径边界 `/api/v1-evil`、query 走私、反斜杠混淆、数字 IP 形态、
+  后缀锚定回归、审计留痕）。
+- **审计事件补全（3.2）**：`strix_scan` 每次调用记录 `normalized_target`
+  （匹配器实际所见）与原始 target；每条审计记录带 `plugin` 版本字段
+  （读 plugin.yaml），跨版本审计可解释。
+- **破坏性语义变更**：非标准端口需显式列出（如 NAS 验收的
+  `http://<IP>:8042` 现须 `"<IP>:8042"` 写进 allowed_targets）；
+  README/config 注释已更新。
+
+### 基线数据
+
+158 tests（+25 攻击用例），0 skip；coverage 86%；ruff/mypy 全绿；
+bandit 对新增代码 0 告警（存量 12 条均为既有容错/subprocess 模式）。
+
 ## [0.4.0] - 2026-08-16
 
 ### Ops automation（DEV_PLAN 0.4.0 全项落地）

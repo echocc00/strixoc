@@ -33,7 +33,24 @@ def make_manager(tmp_path, backend=None):
     from plugin import config as cfgmod
 
     cfg = cfgmod.load_config(path=None)
-    cfg["allowed_targets"] = ["localhost"]
+    cfg["allowed_targets"] = [
+        "localhost",
+        "localhost:1",
+        "localhost:2",
+        "localhost:30",
+        "localhost:31",
+        "localhost:32",
+        "localhost:33",
+        "localhost:34",
+        "localhost:35",
+        "localhost:36",
+        "localhost:37",
+        "localhost:38",
+        "localhost:39",
+        "localhost:4",
+        "localhost:5",
+        "localhost:3000",
+    ]
     cfg["scans_db"] = str(tmp_path / "scans.json")
     return ScanManager(cfg, backend=backend or StubBackend())
 
@@ -216,7 +233,24 @@ async def test_start_injects_worker_env(tmp_path, monkeypatch, default_config):
         encoding="utf-8",
     )
     cfg = default_config
-    cfg["allowed_targets"] = ["localhost"]
+    cfg["allowed_targets"] = [
+        "localhost",
+        "localhost:1",
+        "localhost:2",
+        "localhost:30",
+        "localhost:31",
+        "localhost:32",
+        "localhost:33",
+        "localhost:34",
+        "localhost:35",
+        "localhost:36",
+        "localhost:37",
+        "localhost:38",
+        "localhost:39",
+        "localhost:4",
+        "localhost:5",
+        "localhost:3000",
+    ]
     cfg["scans_db"] = str(tmp_path / "scans.json")
     cfg["worker_env"] = {
         "STRIX_LLM": "litellm/minimax/MiniMax-M3",
@@ -281,7 +315,24 @@ def test_reconcile_finalizes_records_from_artifacts(tmp_path):
     from plugin import config as cfgmod
 
     cfg = cfgmod.load_config(path=None)
-    cfg["allowed_targets"] = ["localhost"]
+    cfg["allowed_targets"] = [
+        "localhost",
+        "localhost:1",
+        "localhost:2",
+        "localhost:30",
+        "localhost:31",
+        "localhost:32",
+        "localhost:33",
+        "localhost:34",
+        "localhost:35",
+        "localhost:36",
+        "localhost:37",
+        "localhost:38",
+        "localhost:39",
+        "localhost:4",
+        "localhost:5",
+        "localhost:3000",
+    ]
     cfg["scans_db"] = str(scans_db)
     cfg["runs_cwd"] = str(runs_cwd)
     mgr = ScanManager(cfg, backend=StubBackend())

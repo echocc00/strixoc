@@ -57,6 +57,9 @@ max_budget_default: 5.0
 max_budget_cap: 25.0
 worker_python: /volume1/soft/StrixWorker/venv/bin/python   # 留空则查 STRIX_WORKER_PYTHON
 audit_log: "~/.hermes/logs/strix-audit.jsonl"
+# 0.5.0 目标匹配语义：host 规则默认只允许 80/443（或无端口）；非标准端口
+# 必须写进规则（如 "10.0.0.5:8042"）。userinfo（user@host）、非 http/https
+# scheme、整数/十六进制/八进制 IP 形态一律 deny（见 tests/test_authz_url.py）。
 
 # 3) 验证
 python scripts/verify_env.py

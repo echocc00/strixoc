@@ -16,7 +16,10 @@ from typing import Any
 
 DEFAULT_CONFIG: dict[str, Any] = {
     # Targets the operator authorizes scans against.  Exact host, ``*.domain``
-    # suffix, ``prefix.*``, IPv4/IPv6 CIDR, or a full URL prefix.
+    # suffix, ``prefix.*``, IPv4/IPv6 CIDR, or a full URL prefix.  Since 0.5.0:
+    # host-family rules allow only web-default ports (80/443/none) - list
+    # ``host:port`` explicitly for anything else; userinfo, non-http(s)
+    # schemes and alternate IP encodings are denied outright.
     "allowed_targets": ["localhost", "127.0.0.1", "::1", "*.internal", "*.local"],
     # Chat ids allowed to start scans (CLI = "cli"). Empty list = any chat.
     "allowed_chats": [],
