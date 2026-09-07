@@ -69,6 +69,18 @@ Strix are autonomous AI penetration testing agents that act just like real hacke
 - **Bug Bounty Automation** - Automate bug bounty research and generate PoCs for faster reporting
 - **CI/CD Integration** - Run tests in CI/CD to block vulnerabilities before reaching production
 
+## Architecture
+
+<p align="center">
+  <img src="docs/architecture.svg" alt="Architecture diagram" width="900">
+</p>
+
+## Sequence
+
+<p align="center">
+  <img src="docs/architecture-sequence.svg" alt="Architecture sequence diagram" width="900">
+</p>
+
 ## 🚀 Quick Start
 
 **Prerequisites:**
