@@ -1,40 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" role="img" lang="en">
-<defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
-          </marker>
-          <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
-          </marker>
-          <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
-          </marker>
-          <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
-          </marker>
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
-          </pattern>
-        </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 920" role="img" lang="en">
 
         <title id="archify-diagram-title">strixoc penetration test flow</title>
         <desc id="archify-diagram-description">Scope declaration to signed findings, via recon + exploit agents under Pydantic validation</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
+            <polygon points="0 0, 10 3.5, 0 7" class="m-default" style="fill: #948978" />
           </marker>
           <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
+            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" style="fill: #dd6b3d" />
           </marker>
           <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
+            <polygon points="0 0, 10 3.5, 0 7" class="m-security" style="fill: #df9085" />
           </marker>
           <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
+            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" style="fill: #c0a4d0" />
           </marker>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+            <path d="M 40 0 L 0 0 0 40" class="c-grid" style="stroke-dasharray: 1 3; opacity: 0.78" stroke-width="0.5"/>
           </pattern>
         </defs>
 
@@ -45,77 +28,77 @@
 
 
         <!-- Lifelines -->
-        <path d="M 145.5 142 L 145.5 855" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 348.25 142 L 348.25 855" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 551 142 L 551 855" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 753.75 142 L 753.75 855" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
-        <path d="M 956.5 142 L 956.5 855" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 145.5 142 L 145.5 855" class="a-default" style="stroke: #948978" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 348.25 142 L 348.25 855" class="a-default" style="stroke: #948978" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 551 142 L 551 855" class="a-default" style="stroke: #948978" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 753.75 142 L 753.75 855" class="a-default" style="stroke: #948978" stroke-width="0.8" stroke-dasharray="3,7"/>
+        <path d="M 956.5 142 L 956.5 855" class="a-default" style="stroke: #948978" stroke-width="0.8" stroke-dasharray="3,7"/>
 
         <!-- Activations -->
 
 
         <!-- Messages -->
         <g data-edge-from="operator" data-edge-to="recon" data-edge-label="declare scope · CLI targets + rules / 声明范围 · 规则与目标" data-edge-key="0" data-edge-id="m1-scope">
-          <path data-composition-edge-from="operator" data-composition-edge-to="recon" data-composition-edge-id="m1-scope" data-composition-points="152.5,180;341.25,180" d="M 152.5 180 L 341.25 180" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-composition-edge-from="operator" data-composition-edge-to="recon" data-composition-edge-id="m1-scope" data-composition-points="152.5,180;341.25,180" d="M 152.5 180 L 341.25 180" class="a-emphasis" style="stroke: #dd6b3d" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="87.475" y="160" width="318.8" height="16" rx="3" class="c-mask"/>
-          <text x="246.875" y="170" class="t-backend" font-size="9" text-anchor="middle">declare scope · CLI targets + rules / 声明范围 · 规则与目标</text>
+          <rect x="87.475" y="160" width="318.8" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="246.875" y="170" class="t-backend" style="fill: #8fc29e" font-size="9" text-anchor="middle">declare scope · CLI targets + rules / 声明范围 · 规则与目标</text>
         </g>
         </g>
 
         <g data-edge-from="recon" data-edge-to="operator" data-edge-label="scope acknowledged · recon started / 范围已确认 · 侦察启动" data-edge-key="1" data-edge-id="m2-scope-ack">
-          <path data-composition-edge-from="recon" data-composition-edge-to="operator" data-composition-edge-id="m2-scope-ack" data-composition-points="341.25,280;152.5,280" d="M 341.25 280 L 152.5 280" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+          <path data-composition-edge-from="recon" data-composition-edge-to="operator" data-composition-edge-id="m2-scope-ack" data-composition-points="341.25,280;152.5,280" d="M 341.25 280 L 152.5 280" class="a-default" style="stroke: #948978" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="90.07499999999999" y="260" width="313.6" height="16" rx="3" class="c-mask"/>
-          <text x="246.875" y="270" class="t-muted" font-size="9" text-anchor="middle">scope acknowledged · recon started / 范围已确认 · 侦察启动</text>
+          <rect x="90.07499999999999" y="260" width="313.6" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="246.875" y="270" class="t-muted" style="fill: #b9ae9b" font-size="9" text-anchor="middle">scope acknowledged · recon started / 范围已确认 · 侦察启动</text>
         </g>
         </g>
 
         <g data-edge-from="recon" data-edge-to="exploit" data-edge-label="routes · params · auth · deps mapped / 路由 · 参数 · 鉴权 · 依赖 已盘点" data-edge-key="2" data-edge-id="m3-surface">
-          <path data-composition-edge-from="recon" data-composition-edge-to="exploit" data-composition-edge-id="m3-surface" data-composition-points="355.25,380;544,380" d="M 355.25 380 L 544 380" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-composition-edge-from="recon" data-composition-edge-to="exploit" data-composition-edge-id="m3-surface" data-composition-points="355.25,380;544,380" d="M 355.25 380 L 544 380" class="a-emphasis" style="stroke: #dd6b3d" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="259.025" y="360" width="381.2" height="16" rx="3" class="c-mask"/>
-          <text x="449.625" y="370" class="t-backend" font-size="9" text-anchor="middle">routes · params · auth · deps mapped / 路由 · 参数 · 鉴权 · 依赖 已盘点</text>
+          <rect x="259.025" y="360" width="381.2" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="449.625" y="370" class="t-backend" style="fill: #8fc29e" font-size="9" text-anchor="middle">routes · params · auth · deps mapped / 路由 · 参数 · 鉴权 · 依赖 已盘点</text>
         </g>
         </g>
 
         <g data-edge-from="exploit" data-edge-to="operator" data-edge-label="dynamic exploit within safety rails / 安全边界内动态利用" data-edge-key="3" data-edge-id="m4-exploit-rails">
-          <path data-composition-edge-from="exploit" data-composition-edge-to="operator" data-composition-edge-id="m4-exploit-rails" data-composition-points="544,480;152.5,480" d="M 544 480 L 152.5 480" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+          <path data-composition-edge-from="exploit" data-composition-edge-to="operator" data-composition-edge-id="m4-exploit-rails" data-composition-points="544,480;152.5,480" d="M 544 480 L 152.5 480" class="a-security" style="stroke: #df9085; stroke-dasharray: 5,5" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
         <g data-detail="context">
-          <rect x="196.65" y="460" width="303.2" height="16" rx="3" class="c-mask"/>
-          <text x="348.25" y="470" class="t-security" font-size="9" text-anchor="middle">dynamic exploit within safety rails / 安全边界内动态利用</text>
+          <rect x="196.65" y="460" width="303.2" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="348.25" y="470" class="t-security" style="fill: #df9085" font-size="9" text-anchor="middle">dynamic exploit within safety rails / 安全边界内动态利用</text>
         </g>
         </g>
 
         <g data-edge-from="exploit" data-edge-to="validator" data-edge-label="raw finding + evidence payload / 原始发现 + 证据载荷" data-edge-key="4" data-edge-id="m5-raw-finding">
-          <path data-composition-edge-from="exploit" data-composition-edge-to="validator" data-composition-edge-id="m5-raw-finding" data-composition-points="558,580;746.75,580" d="M 558 580 L 746.75 580" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-composition-edge-from="exploit" data-composition-edge-to="validator" data-composition-edge-id="m5-raw-finding" data-composition-points="558,580;746.75,580" d="M 558 580 L 746.75 580" class="a-emphasis" style="stroke: #dd6b3d" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="511.17499999999995" y="560" width="282.40000000000003" height="16" rx="3" class="c-mask"/>
-          <text x="652.375" y="570" class="t-backend" font-size="9" text-anchor="middle">raw finding + evidence payload / 原始发现 + 证据载荷</text>
+          <rect x="511.17499999999995" y="560" width="282.40000000000003" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="652.375" y="570" class="t-backend" style="fill: #8fc29e" font-size="9" text-anchor="middle">raw finding + evidence payload / 原始发现 + 证据载荷</text>
         </g>
         </g>
 
         <g data-edge-from="validator" data-edge-to="exploit" data-edge-label="Pydantic validates · structured record returned / Pydantic 校验 · 结构化结果回传" data-edge-key="5" data-edge-id="m6-pydantic">
-          <path data-composition-edge-from="validator" data-composition-edge-to="exploit" data-composition-edge-id="m6-pydantic" data-composition-points="746.75,660;558,660" d="M 746.75 660 L 558 660" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+          <path data-composition-edge-from="validator" data-composition-edge-to="exploit" data-composition-edge-id="m6-pydantic" data-composition-points="746.75,660;558,660" d="M 746.75 660 L 558 660" class="a-default" style="stroke: #948978" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="438.375" y="640" width="428" height="16" rx="3" class="c-mask"/>
-          <text x="652.375" y="650" class="t-muted" font-size="9" text-anchor="middle">Pydantic validates · structured record returned / Pydantic 校验 · 结构化结果回传</text>
+          <rect x="438.375" y="640" width="428" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="652.375" y="650" class="t-muted" style="fill: #b9ae9b" font-size="9" text-anchor="middle">Pydantic validates · structured record returned / Pydantic 校验 · 结构化结果回传</text>
         </g>
         </g>
 
         <g data-edge-from="validator" data-edge-to="destination" data-edge-label="aggregate + dedupe + emit report / 聚合 · 去重 · 生成报告" data-edge-key="6" data-edge-id="m7-aggregate">
-          <path data-composition-edge-from="validator" data-composition-edge-to="destination" data-composition-edge-id="m7-aggregate" data-composition-points="760.75,760;949.5,760" d="M 760.75 760 L 949.5 760" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-composition-edge-from="validator" data-composition-edge-to="destination" data-composition-edge-id="m7-aggregate" data-composition-points="760.75,760;949.5,760" d="M 760.75 760 L 949.5 760" class="a-emphasis" style="stroke: #dd6b3d" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <g data-detail="context">
-          <rect x="700.925" y="740" width="308.40000000000003" height="16" rx="3" class="c-mask"/>
-          <text x="855.125" y="750" class="t-backend" font-size="9" text-anchor="middle">aggregate + dedupe + emit report / 聚合 · 去重 · 生成报告</text>
+          <rect x="700.925" y="740" width="308.40000000000003" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="855.125" y="750" class="t-backend" style="fill: #8fc29e" font-size="9" text-anchor="middle">aggregate + dedupe + emit report / 聚合 · 去重 · 生成报告</text>
         </g>
         </g>
 
         <g data-edge-from="destination" data-edge-to="operator" data-edge-label="deliver to CI · ticket · compliance / 下发 CI · 工单 · 合规" data-edge-key="7" data-edge-id="m8-dispatch">
-          <path data-composition-edge-from="destination" data-composition-edge-to="operator" data-composition-edge-id="m8-dispatch" data-composition-points="949.5,820;152.5,820" d="M 949.5 820 L 152.5 820" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+          <path data-composition-edge-from="destination" data-composition-edge-to="operator" data-composition-edge-id="m8-dispatch" data-composition-points="949.5,820;152.5,820" d="M 949.5 820 L 152.5 820" class="a-default" style="stroke: #948978" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
         <g data-detail="context">
-          <rect x="391.6" y="800" width="318.8" height="16" rx="3" class="c-mask"/>
-          <text x="551" y="810" class="t-muted" font-size="9" text-anchor="middle">deliver to CI · ticket · compliance / 下发 CI · 工单 · 合规</text>
+          <rect x="391.6" y="800" width="318.8" height="16" rx="3" class="c-mask" style="fill: #231f18"/>
+          <text x="551" y="810" class="t-muted" style="fill: #b9ae9b" font-size="9" text-anchor="middle">deliver to CI · ticket · compliance / 下发 CI · 工单 · 合规</text>
         </g>
         </g>
 
@@ -125,78 +108,78 @@
         <!-- Participants -->
         <g id="node-operator" data-node-id="operator" data-node-label="Operator / 操作员" tabindex="0" role="button" aria-label="Focus Operator / 操作员, CLI · scope · 范围声明, Sequence participant" aria-pressed="false" data-node-kind="external" data-node-sublabel="CLI · scope · 范围声明" data-node-context="Sequence participant">
           <title>Operator / 操作员 · CLI · scope · 范围声明 · Sequence participant</title>
-          <rect x="62" y="72" width="167" height="54" rx="6" class="c-mask"/>
-          <rect x="62" y="72" width="167" height="54" rx="6" class="c-external" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(68 78) scale(0.6875)">
+          <rect x="62" y="72" width="167" height="54" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="62" y="72" width="167" height="54" rx="6" class="c-external" style="fill: rgba(126, 115, 96, 0.18); stroke: #b8ad99" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #b8ad99" transform="translate(68 78) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="145.5" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Operator / 操作员</text>
-          <text data-detail="context" x="145.5" y="111" class="t-muted" font-size="7" text-anchor="middle">CLI · scope · 范围声明</text>
+          <text data-node-label="" data-detail-anchor="" x="145.5" y="94" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">Operator / 操作员</text>
+          <text data-detail="context" x="145.5" y="111" class="t-muted" style="fill: #b9ae9b" font-size="7" text-anchor="middle">CLI · scope · 范围声明</text>
         </g>
 
         <g id="node-recon" data-node-id="recon" data-node-label="Recon agent / 侦察代理" tabindex="0" role="button" aria-label="Focus Recon agent / 侦察代理, attack surface · 攻击面, Sequence participant" aria-pressed="false" data-node-kind="backend" data-node-sublabel="attack surface · 攻击面" data-node-context="Sequence participant">
           <title>Recon agent / 侦察代理 · attack surface · 攻击面 · Sequence participant</title>
-          <rect x="264.75" y="72" width="167" height="54" rx="6" class="c-mask"/>
-          <rect x="264.75" y="72" width="167" height="54" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(270.75 78) scale(0.6875)">
+          <rect x="264.75" y="72" width="167" height="54" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="264.75" y="72" width="167" height="54" rx="6" class="c-backend" style="fill: rgba(63, 132, 92, 0.16); stroke: #8fc29e" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #8fc29e" transform="translate(270.75 78) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="348.25" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Recon agent / 侦察代理</text>
-          <text data-detail="context" x="348.25" y="111" class="t-muted" font-size="7" text-anchor="middle">attack surface · 攻击面</text>
+          <text data-node-label="" data-detail-anchor="" x="348.25" y="94" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">Recon agent / 侦察代理</text>
+          <text data-detail="context" x="348.25" y="111" class="t-muted" style="fill: #b9ae9b" font-size="7" text-anchor="middle">attack surface · 攻击面</text>
         </g>
 
         <g id="node-exploit" data-node-id="exploit" data-node-label="Exploit agent / 利用代理" tabindex="0" role="button" aria-label="Focus Exploit agent / 利用代理, dynamic · safety rails · 动态受控, Sequence participant" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="dynamic · safety rails · 动态受控" data-node-context="Sequence participant">
           <title>Exploit agent / 利用代理 · dynamic · safety rails · 动态受控 · Sequence participant</title>
-          <rect x="467.5" y="72" width="167" height="54" rx="6" class="c-mask"/>
-          <rect x="467.5" y="72" width="167" height="54" rx="6" class="c-cloud" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(473.5 78) scale(0.6875)">
+          <rect x="467.5" y="72" width="167" height="54" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="467.5" y="72" width="167" height="54" rx="6" class="c-cloud" style="fill: rgba(170, 119, 49, 0.16); stroke: #d8ad68" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #d8ad68" transform="translate(473.5 78) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="551" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Exploit agent / 利用代理</text>
-          <text data-detail="context" x="551" y="111" class="t-muted" font-size="7" text-anchor="middle">dynamic · safety rails · 动态受控</text>
+          <text data-node-label="" data-detail-anchor="" x="551" y="94" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">Exploit agent / 利用代理</text>
+          <text data-detail="context" x="551" y="111" class="t-muted" style="fill: #b9ae9b" font-size="7" text-anchor="middle">dynamic · safety rails · 动态受控</text>
         </g>
 
         <g id="node-validator" data-node-id="validator" data-node-label="Validator / 校验器" tabindex="0" role="button" aria-label="Focus Validator / 校验器, Pydantic 2.11 · structured, Sequence participant" aria-pressed="false" data-node-kind="security" data-node-sublabel="Pydantic 2.11 · structured" data-node-context="Sequence participant">
           <title>Validator / 校验器 · Pydantic 2.11 · structured · Sequence participant</title>
-          <rect x="670.25" y="72" width="167" height="54" rx="6" class="c-mask"/>
-          <rect x="670.25" y="72" width="167" height="54" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(676.25 78) scale(0.6875)">
+          <rect x="670.25" y="72" width="167" height="54" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="670.25" y="72" width="167" height="54" rx="6" class="c-security" style="fill: rgba(157, 69, 65, 0.17); stroke: #df9085" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #df9085" transform="translate(676.25 78) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="753.75" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Validator / 校验器</text>
-          <text data-detail="context" x="753.75" y="111" class="t-muted" font-size="7" text-anchor="middle">Pydantic 2.11 · structured</text>
+          <text data-node-label="" data-detail-anchor="" x="753.75" y="94" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">Validator / 校验器</text>
+          <text data-detail="context" x="753.75" y="111" class="t-muted" style="fill: #b9ae9b" font-size="7" text-anchor="middle">Pydantic 2.11 · structured</text>
         </g>
 
         <g id="node-destination" data-node-id="destination" data-node-label="Reports / 报告目标" tabindex="0" role="button" aria-label="Focus Reports / 报告目标, CI · ticket · compliance, Sequence participant" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="CI · ticket · compliance" data-node-context="Sequence participant">
           <title>Reports / 报告目标 · CI · ticket · compliance · Sequence participant</title>
-          <rect x="873" y="72" width="167" height="54" rx="6" class="c-mask"/>
-          <rect x="873" y="72" width="167" height="54" rx="6" class="c-messagebus" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(879 78) scale(0.6875)">
+          <rect x="873" y="72" width="167" height="54" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="873" y="72" width="167" height="54" rx="6" class="c-messagebus" style="fill: rgba(174, 79, 42, 0.16); stroke: #df946f" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #df946f" transform="translate(879 78) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
-            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
-            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
-            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
+            <circle cx="5" cy="4.5" r="1" class="sigil-fill" style="fill: currentColor"/>
+            <circle cx="10.5" cy="8" r="1" class="sigil-fill" style="fill: currentColor"/>
+            <circle cx="7" cy="11.5" r="1" class="sigil-fill" style="fill: currentColor"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="956.5" y="94" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reports / 报告目标</text>
-          <text data-detail="context" x="956.5" y="111" class="t-muted" font-size="7" text-anchor="middle">CI · ticket · compliance</text>
+          <text data-node-label="" data-detail-anchor="" x="956.5" y="94" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">Reports / 报告目标</text>
+          <text data-detail="context" x="956.5" y="111" class="t-muted" style="fill: #b9ae9b" font-size="7" text-anchor="middle">CI · ticket · compliance</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="">
-          <text x="40" y="846" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <text x="40" y="846" class="t-primary" style="fill: #f4eddf" font-size="12" font-weight="650">Legend</text>
           <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="866" data-legend-width="78">
-            <path d="M 40 863 L 74 863" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-            <text x="83" y="866" class="t-muted" font-size="10" font-weight="500">request</text>
+            <path d="M 40 863 L 74 863" class="a-emphasis" style="stroke: #dd6b3d" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+            <text x="83" y="866" class="t-muted" style="fill: #b9ae9b" font-size="10" font-weight="500">request</text>
           </g>
           <g data-legend-semantic-kind="return" data-legend-x="140" data-legend-baseline="866" data-legend-width="73">
-            <path d="M 140 863 L 174 863" class="a-default" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
-            <text x="183" y="866" class="t-muted" font-size="10" font-weight="500">return</text>
+            <path d="M 140 863 L 174 863" class="a-default" style="stroke: #948978" stroke-width="1.4" stroke-dasharray="3,5" marker-end="url(#arrowhead)"/>
+            <text x="183" y="866" class="t-muted" style="fill: #b9ae9b" font-size="10" font-weight="500">return</text>
           </g>
           <g data-legend-semantic-kind="security" data-legend-x="235" data-legend-baseline="866" data-legend-width="83">
-            <path d="M 235 863 L 269 863" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-            <text x="278" y="866" class="t-muted" font-size="10" font-weight="500">security</text>
+            <path d="M 235 863 L 269 863" class="a-security" style="stroke: #df9085; stroke-dasharray: 5,5" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+            <text x="278" y="866" class="t-muted" style="fill: #b9ae9b" font-size="10" font-weight="500">security</text>
           </g>
         </g>
       
