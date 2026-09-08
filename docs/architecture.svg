@@ -28,17 +28,17 @@
 
 
         <!-- Connection paths (before components for correct z-order) -->
-        <path data-edge-from="cli" data-edge-to="agents" data-edge-label="scope" data-edge-key="0" data-edge-id="cli-agents" data-composition-points="200,90;280,90" d="M 200 90 L 280 90" class="a-default" style="stroke: #948978" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="agents" data-edge-to="litellm" data-edge-label="route" data-edge-key="1" data-edge-id="agents-litellm" data-composition-points="480,83;550,83" d="M 480 83 L 550 83" class="a-emphasis" style="stroke: #dd6b3d" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="litellm" data-edge-to="openai" data-edge-label="call" data-edge-key="2" data-edge-id="litellm-openai" data-composition-points="720,90;790,90" d="M 720 90 L 790 90" class="a-default" style="stroke: #948978" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="agents" data-edge-to="tools" data-edge-label="use" data-edge-key="3" data-edge-id="agents-tools" data-composition-points="480,97;515,97;515,250;550,250" d="M 480 97 L 507 97 Q 515 97 515 105 L 515 242 Q 515 250 523 250 L 550 250" class="a-security" style="stroke: #df9085; stroke-dasharray: 5,5" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="cli" data-edge-to="agents" data-edge-label="scope" data-edge-key="0" data-edge-id="cli-agents" data-composition-points="200,90;280,90" d="M 200 90 L 280 90" class="a-default" style="stroke: #948978; fill: none" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="agents" data-edge-to="litellm" data-edge-label="route" data-edge-key="1" data-edge-id="agents-litellm" data-composition-points="480,83;550,83" d="M 480 83 L 550 83" class="a-emphasis" style="stroke: #dd6b3d; fill: none" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="litellm" data-edge-to="openai" data-edge-label="call" data-edge-key="2" data-edge-id="litellm-openai" data-composition-points="720,90;790,90" d="M 720 90 L 790 90" class="a-default" style="stroke: #948978; fill: none" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="agents" data-edge-to="tools" data-edge-label="use" data-edge-key="3" data-edge-id="agents-tools" data-composition-points="480,97;515,97;515,250;550,250" d="M 480 97 L 507 97 Q 515 97 515 105 L 515 242 Q 515 250 523 250 L 550 250" class="a-security" style="stroke: #df9085; fill: none; stroke-dasharray: 5,5" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
 
         <!-- Components -->
         <g id="node-cli" data-node-id="cli" data-node-label="Operator" tabindex="0" role="button" aria-label="Focus Operator, CLI, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="CLI" data-node-context="Architecture component">
           <title>Operator · CLI · Architecture component</title>
-          <rect x="60" y="60" width="140" height="60" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="60" y="60" width="140" height="60" rx="6" class="c-mask" style="fill: #231f18; stroke: none"/>
           <rect x="60" y="60" width="140" height="60" rx="6" class="c-external" style="fill: rgba(126, 115, 96, 0.18); stroke: #b8ad99" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #b8ad99" transform="translate(66 66) scale(0.6875)">
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" style="fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; pointer-events: none; color: #b8ad99" transform="translate(66 66) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
@@ -48,9 +48,9 @@
 
         <g id="node-agents" data-node-id="agents" data-node-label="openai-agents[litellm]" tabindex="0" role="button" aria-label="Focus openai-agents[litellm], Python 3.12+, Architecture component" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="Python 3.12+" data-node-tag="Pydantic 2.11 + pydantic-settings" data-node-context="Architecture component">
           <title>openai-agents[litellm] · Python 3.12+ · Architecture component · Pydantic 2.11 + pydantic-settings</title>
-          <rect x="280" y="60" width="200" height="60" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="280" y="60" width="200" height="60" rx="6" class="c-mask" style="fill: #231f18; stroke: none"/>
           <rect x="280" y="60" width="200" height="60" rx="6" class="c-cloud" style="fill: rgba(170, 119, 49, 0.16); stroke: #d8ad68" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #d8ad68" transform="translate(286 66) scale(0.6875)">
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" style="fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; pointer-events: none; color: #d8ad68" transform="translate(286 66) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="380" y="88" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">openai-agents[litellm]</text>
@@ -60,9 +60,9 @@
 
         <g id="node-litellm" data-node-id="litellm" data-node-label="LiteLLM" tabindex="0" role="button" aria-label="Focus LiteLLM, multi-LLM router, Architecture component" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="multi-LLM router" data-node-context="Architecture component">
           <title>LiteLLM · multi-LLM router · Architecture component</title>
-          <rect x="550" y="60" width="170" height="60" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="550" y="60" width="170" height="60" rx="6" class="c-mask" style="fill: #231f18; stroke: none"/>
           <rect x="550" y="60" width="170" height="60" rx="6" class="c-cloud" style="fill: rgba(170, 119, 49, 0.16); stroke: #d8ad68" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #d8ad68" transform="translate(556 66) scale(0.6875)">
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" style="fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; pointer-events: none; color: #d8ad68" transform="translate(556 66) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="635" y="88" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">LiteLLM</text>
@@ -71,9 +71,9 @@
 
         <g id="node-openai" data-node-id="openai" data-node-label="OpenAI 2.45+" tabindex="0" role="button" aria-label="Focus OpenAI 2.45+, LLM provider, Architecture component" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="LLM provider" data-node-context="Architecture component">
           <title>OpenAI 2.45+ · LLM provider · Architecture component</title>
-          <rect x="790" y="60" width="170" height="60" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="790" y="60" width="170" height="60" rx="6" class="c-mask" style="fill: #231f18; stroke: none"/>
           <rect x="790" y="60" width="170" height="60" rx="6" class="c-cloud" style="fill: rgba(170, 119, 49, 0.16); stroke: #d8ad68" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #d8ad68" transform="translate(796 66) scale(0.6875)">
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" style="fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; pointer-events: none; color: #d8ad68" transform="translate(796 66) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="875" y="88" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">OpenAI 2.45+</text>
@@ -82,9 +82,9 @@
 
         <g id="node-tools" data-node-id="tools" data-node-label="Pentest Tools" tabindex="0" role="button" aria-label="Focus Pentest Tools, recon + exploit, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="recon + exploit" data-node-tag="scanner" data-node-context="Architecture component">
           <title>Pentest Tools · recon + exploit · Architecture component · scanner</title>
-          <rect x="550" y="220" width="170" height="60" rx="6" class="c-mask" style="fill: #231f18"/>
+          <rect x="550" y="220" width="170" height="60" rx="6" class="c-mask" style="fill: #231f18; stroke: none"/>
           <rect x="550" y="220" width="170" height="60" rx="6" class="c-backend" style="fill: rgba(63, 132, 92, 0.16); stroke: #8fc29e" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" style="stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; color: #8fc29e" transform="translate(556 226) scale(0.6875)">
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" style="fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; pointer-events: none; color: #8fc29e" transform="translate(556 226) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="635" y="248" class="t-primary" style="fill: #f4eddf" font-size="11" font-weight="600" text-anchor="middle">Pentest Tools</text>
@@ -94,19 +94,19 @@
 
         <!-- Connection labels -->
         <g data-detail="context" data-edge-from="cli" data-edge-to="agents" data-edge-label="scope" data-edge-key="0" data-edge-id="cli-agents">
-          <rect x="223" y="70" width="34" height="14" rx="3" class="c-mask" style="fill: #231f18"/>
+          <rect x="223" y="70" width="34" height="14" rx="3" class="c-mask" style="fill: #231f18; stroke: none"/>
           <text x="240" y="80" class="t-muted" style="fill: #b9ae9b" font-size="8" text-anchor="middle">scope</text>
         </g>
         <g data-detail="context" data-edge-from="agents" data-edge-to="litellm" data-edge-label="route" data-edge-key="1" data-edge-id="agents-litellm">
-          <rect x="498" y="63" width="34" height="14" rx="3" class="c-mask" style="fill: #231f18"/>
+          <rect x="498" y="63" width="34" height="14" rx="3" class="c-mask" style="fill: #231f18; stroke: none"/>
           <text x="515" y="73" class="t-backend" style="fill: #8fc29e" font-size="8" text-anchor="middle">route</text>
         </g>
         <g data-detail="context" data-edge-from="litellm" data-edge-to="openai" data-edge-label="call" data-edge-key="2" data-edge-id="litellm-openai">
-          <rect x="740" y="70" width="30" height="14" rx="3" class="c-mask" style="fill: #231f18"/>
+          <rect x="740" y="70" width="30" height="14" rx="3" class="c-mask" style="fill: #231f18; stroke: none"/>
           <text x="755" y="80" class="t-muted" style="fill: #b9ae9b" font-size="8" text-anchor="middle">call</text>
         </g>
         <g data-detail="context" data-edge-from="agents" data-edge-to="tools" data-edge-label="use" data-edge-key="3" data-edge-id="agents-tools">
-          <rect x="500" y="153.5" width="30" height="14" rx="3" class="c-mask" style="fill: #231f18"/>
+          <rect x="500" y="153.5" width="30" height="14" rx="3" class="c-mask" style="fill: #231f18; stroke: none"/>
           <text x="515" y="163.5" class="t-security" style="fill: #df9085" font-size="8" text-anchor="middle">use</text>
         </g>
 
